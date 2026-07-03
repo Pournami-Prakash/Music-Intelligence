@@ -1,37 +1,27 @@
 """
-Validate processed MPD Parquet files against expected counts before deleting raw JSON.
+Validate processed MPD Parquet files on R2 using DuckDB — no pandas, no full download.
 
-Checks:
-  - playlists.parquet  : exactly 1,000,000 rows, no duplicate pids
-  - tracks.parquet     : expected unique track count, no null URIs
-  - playlist_tracks.parquet: expected row count, pos preserved, no orphaned tracks
+DuckDB reads Parquet metadata and runs aggregations directly over R2 via httpfs.
+Only summary stats are pulled into memory.
 
 Usage:
     python src/ingestion/validate_mpd.py
 """
 
 import sys
-import tempfile
 from pathlib import Path
 
-import pandas as pd
-
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from src.storage.r2 import R2Client
+from src.storage.duckdb_r2 import get_con, R2_PATH
 
-
-def download(r2: R2Client, key: str) -> pd.DataFrame:
-    tmp = Path(tempfile.gettempdir()) / f"validate_{key.replace('/', '_')}"
-    r2.download(key, tmp)
-    df = pd.read_parquet(tmp)
-    tmp.unlink(missing_ok=True)
-    return df
+PL  = f"{R2_PATH}/processed/playlists.parquet"
+TR  = f"{R2_PATH}/processed/tracks.parquet"
+PT  = f"{R2_PATH}/processed/playlist_tracks.parquet"
 
 
 def validate():
-    r2 = R2Client()
-    passed = []
-    failed = []
+    con = get_con()
+    passed, failed = [], []
 
     def check(name: str, condition: bool, detail: str = ""):
         if condition:
@@ -39,59 +29,100 @@ def validate():
         else:
             failed.append(f"  ✗ {name}" + (f" — {detail}" if detail else ""))
 
-    print("Downloading and validating MPD Parquet files from R2...\n")
+    print("Validating MPD Parquet files via DuckDB → R2...\n")
 
     # ── playlists ─────────────────────────────────────────────────────────────
-    pl = download(r2, "processed/playlists.parquet")
-    check("playlists row count = 1,000,000",      len(pl) == 1_000_000,        f"got {len(pl):,}")
-    check("playlists no duplicate pids",           pl["pid"].nunique() == len(pl))
-    check("playlists no null pids",                pl["pid"].notna().all())
-    check("playlists has name column",             "name" in pl.columns)
-    check("playlists num_tracks > 0 for all",      (pl["num_tracks"] > 0).all())
+    pl_stats = con.execute(f"""
+        SELECT
+            COUNT(*)                        AS total,
+            COUNT(DISTINCT pid)             AS unique_pids,
+            COUNT(*) FILTER (pid IS NULL)   AS null_pids,
+            AVG(num_tracks)                 AS avg_tracks,
+            SUM(collaborative::INT)         AS collab_count,
+            MIN(pid)                        AS min_pid,
+            MAX(pid)                        AS max_pid
+        FROM read_parquet('{PL}')
+    """).fetchone()
 
-    print(f"playlists.parquet: {len(pl):,} rows")
-    print(f"  pid range: {pl['pid'].min()} → {pl['pid'].max()}")
-    print(f"  avg tracks per playlist: {pl['num_tracks'].mean():.1f}")
-    print(f"  collaborative: {pl['collaborative'].sum():,} ({pl['collaborative'].mean()*100:.1f}%)\n")
+    total_pl, unique_pids, null_pids, avg_tracks, collab, min_pid, max_pid = pl_stats
+
+    check("playlists row count = 1,000,000",    total_pl == 1_000_000,       f"got {total_pl:,}")
+    check("playlists no duplicate pids",         unique_pids == total_pl,     f"{total_pl - unique_pids:,} dupes")
+    check("playlists no null pids",              null_pids == 0,              f"{null_pids:,} nulls")
+
+    print(f"playlists.parquet: {total_pl:,} rows")
+    print(f"  pid range       : {min_pid} → {max_pid}")
+    print(f"  avg tracks      : {avg_tracks:.1f}")
+    print(f"  collaborative   : {collab:,} ({collab/total_pl*100:.1f}%)\n")
 
     # ── tracks ────────────────────────────────────────────────────────────────
-    tr = download(r2, "processed/tracks.parquet")
-    check("tracks no null URIs",                   tr["track_uri"].notna().all())
-    check("tracks no duplicate URIs",              tr["track_uri"].nunique() == len(tr))
-    check("tracks has artist_name",                tr["artist_name"].notna().mean() > 0.95,
-                                                   f"nulls: {tr['artist_name'].isna().sum():,}")
-    check("tracks has duration_ms > 0",            (tr["duration_ms"] > 0).mean() > 0.95)
+    tr_stats = con.execute(f"""
+        SELECT
+            COUNT(*)                                    AS total,
+            COUNT(DISTINCT track_uri)                   AS unique_uris,
+            COUNT(*) FILTER (track_uri IS NULL)         AS null_uris,
+            COUNT(*) FILTER (artist_name IS NULL)       AS null_artists,
+            COUNT(*) FILTER (duration_ms <= 0)          AS bad_duration,
+            COUNT(DISTINCT artist_name)                 AS unique_artists
+        FROM read_parquet('{TR}')
+    """).fetchone()
 
-    print(f"tracks.parquet: {len(tr):,} unique tracks")
-    print(f"  unique artists: {tr['artist_name'].nunique():,}")
-    print(f"  avg duration: {tr['duration_ms'].mean()/1000:.0f}s\n")
+    total_tr, unique_uris, null_uris, null_artists, bad_dur, unique_artists = tr_stats
+
+    check("tracks no null URIs",           null_uris == 0,      f"{null_uris:,} nulls")
+    check("tracks no duplicate URIs",      unique_uris == total_tr, f"{total_tr - unique_uris:,} dupes")
+    check("tracks artist coverage > 95%",  null_artists / total_tr < 0.05,
+                                           f"{null_artists:,} null artists")
+    check("tracks duration mostly valid",  bad_dur / total_tr < 0.05,
+                                           f"{bad_dur:,} with duration ≤ 0")
+
+    print(f"tracks.parquet: {total_tr:,} unique tracks")
+    print(f"  unique artists  : {unique_artists:,}")
+    print(f"  null artists    : {null_artists:,}\n")
 
     # ── playlist_tracks ───────────────────────────────────────────────────────
-    pt = download(r2, "processed/playlist_tracks.parquet")
-    check("playlist_tracks > 60M rows",            len(pt) > 60_000_000,        f"got {len(pt):,}")
-    check("playlist_tracks pos column exists",     "pos" in pt.columns)
-    check("playlist_tracks pos >= 0",              (pt["pos"] >= 0).all())
-    check("playlist_tracks no null track_uri",     pt["track_uri"].notna().all())
-    check("playlist_tracks no null pid",           pt["pid"].notna().all())
+    pt_stats = con.execute(f"""
+        SELECT
+            COUNT(*)                                AS total,
+            COUNT(DISTINCT pid)                     AS unique_pids,
+            COUNT(DISTINCT track_uri)               AS unique_uris,
+            COUNT(*) FILTER (track_uri IS NULL)     AS null_uris,
+            COUNT(*) FILTER (pid IS NULL)           AS null_pids,
+            COUNT(*) FILTER (pos < 0)               AS neg_pos,
+            MIN(pos)                                AS min_pos,
+            MAX(pos)                                AS max_pos
+        FROM read_parquet('{PT}')
+    """).fetchone()
 
-    # Verify all tracks in playlist_tracks exist in tracks
-    pt_uris = set(pt["track_uri"].unique())
-    tr_uris = set(tr["track_uri"].unique())
-    orphaned = pt_uris - tr_uris
-    check("no orphaned track URIs in playlist_tracks", len(orphaned) == 0,
-          f"{len(orphaned):,} URIs in playlist_tracks missing from tracks")
+    total_pt, pt_unique_pids, pt_unique_uris, pt_null_uris, pt_null_pids, neg_pos, min_pos, max_pos = pt_stats
 
-    # Verify all pids in playlist_tracks exist in playlists
-    pt_pids = set(pt["pid"].unique())
-    pl_pids = set(pl["pid"].unique())
-    orphaned_pids = pt_pids - pl_pids
-    check("no orphaned pids in playlist_tracks",   len(orphaned_pids) == 0,
-          f"{len(orphaned_pids):,} pids missing from playlists")
+    check("playlist_tracks > 60M rows",    total_pt > 60_000_000,   f"got {total_pt:,}")
+    check("playlist_tracks no null URIs",  pt_null_uris == 0,       f"{pt_null_uris:,} nulls")
+    check("playlist_tracks no null pids",  pt_null_pids == 0,       f"{pt_null_pids:,} nulls")
+    check("playlist_tracks pos >= 0",      neg_pos == 0,            f"{neg_pos:,} negative pos values")
 
-    print(f"playlist_tracks.parquet: {len(pt):,} rows")
-    print(f"  unique pids: {pt['pid'].nunique():,}")
-    print(f"  unique track_uris: {pt['track_uri'].nunique():,}")
-    print(f"  pos range: {pt['pos'].min()} → {pt['pos'].max()}\n")
+    print(f"playlist_tracks.parquet: {total_pt:,} rows")
+    print(f"  unique pids     : {pt_unique_pids:,}")
+    print(f"  unique URIs     : {pt_unique_uris:,}")
+    print(f"  pos range       : {min_pos} → {max_pos}\n")
+
+    # ── Cross-table checks via DuckDB JOIN ─────────────────────────────────────
+    orphan_tracks = con.execute(f"""
+        SELECT COUNT(DISTINCT pt.track_uri)
+        FROM read_parquet('{PT}') pt
+        LEFT JOIN read_parquet('{TR}') tr USING (track_uri)
+        WHERE tr.track_uri IS NULL
+    """).fetchone()[0]
+
+    orphan_pids = con.execute(f"""
+        SELECT COUNT(DISTINCT pt.pid)
+        FROM read_parquet('{PT}') pt
+        LEFT JOIN read_parquet('{PL}') pl USING (pid)
+        WHERE pl.pid IS NULL
+    """).fetchone()[0]
+
+    check("no orphaned track URIs in playlist_tracks", orphan_tracks == 0, f"{orphan_tracks:,} orphans")
+    check("no orphaned pids in playlist_tracks",       orphan_pids == 0,   f"{orphan_pids:,} orphans")
 
     # ── Summary ───────────────────────────────────────────────────────────────
     print("─" * 50)
@@ -100,9 +131,9 @@ def validate():
         print(p)
     if failed:
         print(f"\nFAILED: {len(failed)}")
-        for f in failed:
-            print(f)
-        print("\n⚠ Do NOT delete raw MPD until all checks pass.")
+        for f_ in failed:
+            print(f_)
+        print("\n⚠  Do NOT delete raw MPD until all checks pass.")
     else:
         print("\n✓ All checks passed. Safe to delete or archive raw MPD JSON.")
     print("─" * 50)

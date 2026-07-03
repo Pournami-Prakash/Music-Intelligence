@@ -16,7 +16,6 @@ Usage:
 """
 
 import argparse
-import json
 import sys
 import time
 import tempfile
@@ -30,6 +29,7 @@ from tqdm import tqdm
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.storage.r2 import R2Client
+from src.storage.duckdb_r2 import get_con, R2_PATH
 
 mb.set_useragent("MusicIntelligenceAtlas", "0.1", "https://github.com/music-intelligence-atlas")
 
@@ -38,31 +38,23 @@ R2_KEY_PROGRESS = "enrichment/artist_tags_progress.json"
 RATE_LIMIT_SEC  = 1.1  # slightly over 1 sec to stay safe
 
 
-def get_top_artists(r2: R2Client, top_n: int) -> pd.DataFrame:
-    """Load playlist_tracks + tracks from R2, return top-N artists by playlist frequency."""
-    tmp_pt = Path(tempfile.gettempdir()) / "pt_tmp.parquet"
-    tmp_tr = Path(tempfile.gettempdir()) / "tr_tmp.parquet"
-
-    r2.download("processed/playlist_tracks.parquet", tmp_pt)
-    r2.download("processed/tracks.parquet", tmp_tr)
-
-    pt = pd.read_parquet(tmp_pt, columns=["track_uri"])
-    tr = pd.read_parquet(tmp_tr, columns=["track_uri", "artist_name", "artist_uri"])
-
-    tmp_pt.unlink(missing_ok=True)
-    tmp_tr.unlink(missing_ok=True)
-
-    freq = pt.merge(tr, on="track_uri")
-    artist_freq = (
-        freq.groupby(["artist_uri", "artist_name"])
-        .size()
-        .reset_index(name="playlist_appearances")
-        .sort_values("playlist_appearances", ascending=False)
-        .head(top_n)
-    )
-
-    print(f"Top {top_n} artists selected (covers {artist_freq['playlist_appearances'].sum():,} track-playlist rows)")
-    return artist_freq
+def get_top_artists(top_n: int) -> pd.DataFrame:
+    """Use DuckDB over R2 to aggregate top-N artists by playlist frequency — no full download."""
+    con = get_con()
+    df = con.execute(f"""
+        SELECT
+            tr.artist_uri,
+            tr.artist_name,
+            COUNT(*) AS playlist_appearances
+        FROM read_parquet('{R2_PATH}/processed/playlist_tracks.parquet') pt
+        JOIN read_parquet('{R2_PATH}/processed/tracks.parquet') tr
+            USING (track_uri)
+        GROUP BY tr.artist_uri, tr.artist_name
+        ORDER BY playlist_appearances DESC
+        LIMIT {top_n}
+    """).df()
+    print(f"Top {top_n} artists selected (covers {df['playlist_appearances'].sum():,} track-playlist rows)")
+    return df
 
 
 def query_artist_tags(artist_name: str) -> list[str]:
@@ -90,8 +82,8 @@ def main():
 
     r2 = R2Client()
 
-    print(f"Loading top {args.top_n:,} artists from R2...")
-    artists_df = get_top_artists(r2, args.top_n)
+    print(f"Loading top {args.top_n:,} artists from R2 via DuckDB...")
+    artists_df = get_top_artists(args.top_n)
 
     # Load existing results if resuming
     done: dict[str, list[str]] = {}
