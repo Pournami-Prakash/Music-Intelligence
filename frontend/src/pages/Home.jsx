@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ArrowUpRight, Search } from 'lucide-react'
 import { ROOM_ORDER, ROOMS } from '../data/rooms'
 import { CountUp } from '../components/Observatory'
+import { apiUrl } from '../lib/api'
 
 const DEFAULT_STATS = {
   playlists: 1_000_000,
@@ -32,7 +33,7 @@ export default function Home() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    fetch('/api/stats').then(r => r.json()).then(setStats).catch(() => {})
+    fetch(apiUrl('/api/stats')).then(r => r.json()).then(setStats).catch(() => {})
   }, [])
 
   const openDossier = (event) => {

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import LottiePlayer from '../components/LottiePlayer'
 import { PvPage, PvTop, PvHero, PvPanel } from '../components/Premium'
+import { apiUrl } from '../lib/api'
 
 const MOODS = ['sad', 'happy', 'gym', 'party', 'study', 'sleep', 'chill']
 const MOOD_COLORS = {
@@ -33,7 +34,7 @@ export default function GuiltyPleasureMap() {
     setLoading(true)
     setError(null)
     setSelected(null)
-    fetch(`/api/mood-contradiction?mood=${mood}&limit=20`)
+    fetch(apiUrl(`/api/mood-contradiction?mood=${mood}&limit=20`))
       .then(r => r.ok ? r.json() : Promise.reject(r.statusText))
       .then(d => { setData(d); setLoading(false) })
       .catch(e => { setError(String(e)); setLoading(false) })

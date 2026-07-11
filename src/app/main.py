@@ -39,6 +39,9 @@ app.add_middleware(
 @app.on_event("startup")
 def _startup_warmup():
     """Pre-load heavy artifacts in background so first requests are fast."""
+    if os.environ.get("SKIP_STARTUP_WARMUP", "").lower() in {"1", "true", "yes"}:
+        return
+
     def _warm():
         threads = [
             threading.Thread(target=_load_faiss, daemon=True),

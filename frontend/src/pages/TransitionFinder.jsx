@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom'
 import LottiePlayer from '../components/LottiePlayer'
 import TrackAutocomplete from '../components/TrackAutocomplete'
 import { PvPage, PvTop, PvHero, PvPanel } from '../components/Premium'
-import { getJson } from '../lib/api'
+import { apiUrl, getJson } from '../lib/api'
 
 const BRIDGE_COLORS = ['#5AC8FA', '#3DDC97', '#B08CF8', '#FB923C', '#22D3EE']
 const EXAMPLES = [
@@ -39,8 +39,8 @@ export default function TransitionFinder() {
     setFromUri(null); setToUri(null); setResult(null); setError(null)
     try {
       const [rA, rB] = await Promise.all([
-        fetch(`/api/search-tracks?q=${encodeURIComponent(from)}&limit=1`).then(r => r.json()),
-        fetch(`/api/search-tracks?q=${encodeURIComponent(to)}&limit=1`).then(r => r.json()),
+        fetch(apiUrl(`/api/search-tracks?q=${encodeURIComponent(from)}&limit=1`)).then(r => r.json()),
+        fetch(apiUrl(`/api/search-tracks?q=${encodeURIComponent(to)}&limit=1`)).then(r => r.json()),
       ])
       const uriA = rA.results?.[0]?.uri
       const uriB = rB.results?.[0]?.uri

@@ -24,9 +24,9 @@ _SOUNDTRACK_HABITATS = {
 
 _SOUNDTRACK_ROLES = ["opener", "build", "anchor", "peak", "anchor", "wind_down", "closer", "bonus"]
 
-_OLLAMA_URL    = os.environ.get("OLLAMA_URL",   "http://localhost:11434")
-_OLLAMA_MODEL  = os.environ.get("OLLAMA_MODEL", "llama3")
-_OLLAMA_SYSTEM = """\
+_GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
+_GROQ_MODEL   = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")
+_LLM_SYSTEM = """\
 You are a music curator assistant. Given a natural language prompt describing a mood, \
 activity, or feeling, return a JSON object with exactly these fields:
   "habitat": one of [gym, heartbreak, road_trip, party, study, chill, throwback, sleep]
@@ -37,29 +37,46 @@ activity, or feeling, return a JSON object with exactly these fields:
 Respond with only valid JSON, no markdown, no extra text."""
 
 
-def _ollama_classify(prompt: str, timeout: int = 25) -> Optional[dict]:
+def _parse_llm_json(text: str) -> Optional[dict]:
+    text = text.strip()
+    text = re.sub(r"^```(?:json)?\s*", "", text)
+    text = re.sub(r"\s*```$", "", text)
+    try:
+        result = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    if result.get("habitat") in _SOUNDTRACK_HABITATS:
+        return result
+    return None
+
+
+def _groq_classify(prompt: str, timeout: int = 12) -> Optional[dict]:
+    if not _GROQ_API_KEY:
+        return None
     payload = json.dumps({
-        "model":   _OLLAMA_MODEL,
-        "prompt":  prompt,
-        "system":  _OLLAMA_SYSTEM,
-        "stream":  False,
-        "options": {"temperature": 0.3, "num_predict": 120},
+        "model": _GROQ_MODEL,
+        "messages": [
+            {"role": "system", "content": _LLM_SYSTEM},
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": 0.3,
+        "max_tokens": 160,
+        "response_format": {"type": "json_object"},
     }).encode()
     try:
         req = urllib.request.Request(
-            f"{_OLLAMA_URL}/api/generate",
+            "https://api.groq.com/openai/v1/chat/completions",
             data=payload,
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Authorization": f"Bearer {_GROQ_API_KEY}",
+                "Content-Type": "application/json",
+            },
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             raw = json.loads(resp.read())
-        text = raw.get("response", "").strip()
-        text = re.sub(r"^```(?:json)?\s*", "", text)
-        text = re.sub(r"\s*```$", "", text)
-        result = json.loads(text)
-        if result.get("habitat") in _SOUNDTRACK_HABITATS:
-            return result
+        text = raw["choices"][0]["message"]["content"]
+        return _parse_llm_json(text)
     except Exception:
         pass
     return None
@@ -73,7 +90,7 @@ def soundtrack_gift(body: SoundtrackGiftBody):
     if hab_df is None or stats_df is None:
         raise HTTPException(503, detail="not_ready")
 
-    llm_result = _ollama_classify(prompt)
+    llm_result = _groq_classify(prompt)
     if llm_result:
         best_hab       = llm_result["habitat"]
         energy         = llm_result.get("energy", "medium")

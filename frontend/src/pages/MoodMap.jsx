@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import LottiePlayer from '../components/LottiePlayer'
 import { PvPage, PvTop, PvHero, PvPanel } from '../components/Premium'
+import { apiUrl } from '../lib/api'
 
 export default function MoodMap() {
   const [clusters, setClusters] = useState(null)
   const [selected, setSelected] = useState(null)
 
   useEffect(() => {
-    fetch('/api/mood-map/clusters')
+    fetch(apiUrl('/api/mood-map/clusters'))
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d?.clusters) { setClusters(d.clusters); setSelected(d.clusters[0]) } })
       .catch(() => {})

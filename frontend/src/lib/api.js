@@ -1,5 +1,12 @@
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')
+
+export function apiUrl(url) {
+  if (!API_BASE || /^https?:\/\//.test(url)) return url
+  return `${API_BASE}${url.startsWith('/') ? url : `/${url}`}`
+}
+
 export async function getJson(url, options) {
-  const res = await fetch(url, options)
+  const res = await fetch(apiUrl(url), options)
   if (res.ok) return res.json()
 
   let detail = ''

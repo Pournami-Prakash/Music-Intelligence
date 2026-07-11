@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { apiUrl } from '../lib/api'
 
 /**
  * Controlled input with live track autocomplete from /api/search-tracks.
@@ -20,7 +21,7 @@ export default function TrackAutocomplete({ value, onChange, onSelect, placehold
     clearTimeout(timerRef.current)
     timerRef.current = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/search-tracks?q=${encodeURIComponent(value)}&limit=8`)
+        const res = await fetch(apiUrl(`/api/search-tracks?q=${encodeURIComponent(value)}&limit=8`))
         if (!res.ok) return
         const data = await res.json()
         setSuggestions(data.results || [])

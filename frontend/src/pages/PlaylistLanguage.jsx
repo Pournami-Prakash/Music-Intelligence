@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { PvPage, PvTop, PvHero, PvPanel } from '../components/Premium'
+import { apiUrl } from '../lib/api'
 
 const WORDS = [
   { word: 'vibes', freq: 94120, cat: 'mood', examples: ['sunday vibes', 'late night vibes', 'beach vibes only'] },
@@ -26,7 +27,7 @@ export default function PlaylistLanguage() {
 
   useEffect(() => {
     if (location.state?.filter) setFilter(location.state.filter)
-    fetch(`/api/playlist-language?limit=80`)
+    fetch(apiUrl(`/api/playlist-language?limit=80`))
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (data?.words?.length) {
