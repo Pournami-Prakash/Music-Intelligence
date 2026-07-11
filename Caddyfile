@@ -1,15 +1,8 @@
+# Auto-HTTPS reverse proxy for the FastAPI backend.
+# CORS is handled by FastAPI (CORSMiddleware, driven by the FRONTEND_URL env var)
+# — do NOT also set CORS headers here, or the browser sees duplicate
+# Access-Control-Allow-Origin values and rejects the response.
 api.pournamiprakash.dev {
     reverse_proxy localhost:8000
-
-    header {
-        Access-Control-Allow-Origin "https://pournamiprakash.dev"
-        Access-Control-Allow-Methods "GET, POST, OPTIONS"
-        Access-Control-Allow-Headers "Content-Type, Authorization"
-        -Server
-    }
-
-    @preflight {
-        method OPTIONS
-    }
-    respond @preflight 204
+    header -Server
 }
