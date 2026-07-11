@@ -114,6 +114,22 @@ def ingest(skip_upload: bool = False) -> None:
     print(f"  Tracks with date_removed : {pt_df['date_removed'].notna().sum():,}")
     print(f"{'─'*50}\n")
 
+    # Validate: drop placeholder rows before writing
+    _bad_name  = pt_df["artist_name"].fillna("").str.strip()
+    _bad_title = pt_df["track_name"].fillna("").str.strip()
+    _placeholders = ((_bad_name == "") | (_bad_name.str.lower() == "artist")) & (_bad_title == "")
+    n_placeholder = _placeholders.sum()
+    if n_placeholder:
+        print(f"  [validate] dropping {n_placeholder:,} placeholder rows (blank artist+title)")
+        pt_df = pt_df[~_placeholders].copy()
+    _blank_uri = pt_df["track_uri"].fillna("").str.strip() == ""
+    if _blank_uri.any():
+        print(f"  [validate] dropping {_blank_uri.sum():,} rows with blank track_uri")
+        pt_df = pt_df[~_blank_uri].copy()
+    blank_pct = (pt_df["artist_name"].fillna("").str.strip() == "").mean() * 100
+    if blank_pct > 5.0:
+        raise ValueError(f"[validate] {blank_pct:.1f}% of rows still have blank artist_name — check source data")
+
     # Write to temp parquet
     tmp_pl = Path(tempfile.gettempdir()) / "editorial_playlists.parquet"
     tmp_pt = Path(tempfile.gettempdir()) / "editorial_playlist_tracks.parquet"

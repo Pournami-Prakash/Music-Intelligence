@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/health",
+      "destination": "https://api.pournamiprakash.dev/health"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "https://api.pournamiprakash.dev/api/:path*"
+    }
+  ]
+}

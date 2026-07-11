@@ -58,32 +58,52 @@ def get_top_artists(top_n: int) -> pd.DataFrame:
 
 
 def query_artist_tags(artist_name: str) -> list[str]:
-    """Query MusicBrainz for an artist and return their genre tags."""
-    try:
-        result = mb.search_artists(artist=artist_name, limit=1)
-        artists = result.get("artist-list", [])
-        if not artists:
-            return []
+    """Query MusicBrainz for an artist and return their genre tags.
 
-        mbid = artists[0]["id"]
-        detail = mb.get_artist_by_id(mbid, includes=["tags", "user-tags"])
-        tags = detail.get("artist", {}).get("tag-list", [])
-        return [t["name"] for t in tags if int(t.get("count", 0)) >= 1]
-
-    except Exception:
+    The search response itself often includes tag-list, saving a second API call.
+    Falls back to get_artist_by_id only if the search returns no tags.
+    Raises on API errors so the caller can log and retry.
+    """
+    result = mb.search_artists(artist=artist_name, limit=1)
+    artists = result.get("artist-list", [])
+    if not artists:
         return []
+
+    artist = artists[0]
+
+    # Tags are frequently present in the search result — use them first
+    search_tags = artist.get("tag-list", [])
+    tags = [t["name"] for t in search_tags if int(t.get("count", 0)) >= 1]
+    if tags:
+        return tags
+
+    # Fall back to a detail call if search had no tags
+    mbid = artist["id"]
+    detail = mb.get_artist_by_id(mbid, includes=["tags"])
+    detail_tags = detail.get("artist", {}).get("tag-list", [])
+    return [t["name"] for t in detail_tags if int(t.get("count", 0)) >= 1]
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--top-n",  type=int, default=10_000)
     parser.add_argument("--resume", action="store_true", help="Skip already-queried artists")
+    parser.add_argument("--retag",  action="store_true", help="Re-query tags for existing artist list (keeps URIs, re-fetches tags)")
     args = parser.parse_args()
 
     r2 = R2Client()
 
-    print(f"Loading top {args.top_n:,} artists from R2 via DuckDB...")
-    artists_df = get_top_artists(args.top_n)
+    if args.retag and r2.exists(R2_KEY_TAGS):
+        # Re-use existing artist list without hitting DuckDB again
+        tmp = Path(tempfile.gettempdir()) / "tags_retag.parquet"
+        r2.download(R2_KEY_TAGS, tmp)
+        artists_df = pd.read_parquet(tmp)[["artist_uri", "artist_name"]].copy()
+        artists_df["playlist_appearances"] = 0
+        tmp.unlink(missing_ok=True)
+        print(f"Retag mode: re-querying tags for {len(artists_df):,} existing artists")
+    else:
+        print(f"Loading top {args.top_n:,} artists from R2 via DuckDB...")
+        artists_df = get_top_artists(args.top_n)
 
     # Load existing results if resuming
     done: dict[str, list[str]] = {}
@@ -107,7 +127,11 @@ def main():
             skipped += 1
             continue
 
-        tags = query_artist_tags(name)
+        try:
+            tags = query_artist_tags(name)
+        except Exception as e:
+            tqdm.write(f"  ⚠ {name}: {e}")
+            tags = []
         results.append({"artist_uri": uri, "artist_name": name, "tags": tags})
         time.sleep(RATE_LIMIT_SEC)
 

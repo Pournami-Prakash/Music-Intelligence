@@ -1,0 +1,15 @@
+api.pournamiprakash.dev {
+    reverse_proxy localhost:8000
+
+    header {
+        Access-Control-Allow-Origin "https://pournamiprakash.dev"
+        Access-Control-Allow-Methods "GET, POST, OPTIONS"
+        Access-Control-Allow-Headers "Content-Type, Authorization"
+        -Server
+    }
+
+    @preflight {
+        method OPTIONS
+    }
+    respond @preflight 204
+}

@@ -1,0 +1,20 @@
+[Unit]
+Description=Music Intelligence Atlas API
+After=network.target ollama.service
+Wants=ollama.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/music-intelligence-atlas
+EnvironmentFile=/home/ubuntu/music-intelligence-atlas/.env
+ExecStart=/home/ubuntu/music-intelligence-atlas/.venv/bin/python3 -m uvicorn src.app.main:app --host 127.0.0.1 --port 8000 --workers 1
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=music-atlas
+
+[Install]
+WantedBy=multi-user.target

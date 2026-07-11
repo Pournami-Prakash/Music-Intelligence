@@ -1,0 +1,24 @@
+name: Deploy to Oracle Cloud
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.ORACLE_HOST }}
+          username: ubuntu
+          key: ${{ secrets.ORACLE_SSH_KEY }}
+          script: |
+            cd ~/music-intelligence-atlas
+            git pull origin main
+            .venv/bin/pip install -r requirements.txt --quiet
+            sudo systemctl restart music-atlas
+            sleep 3
+            curl -sf http://localhost:8000/health | python3 -c "import sys,json; b=json.load(sys.stdin); sys.exit(0 if b['status']=='ok' else 1)"
+            echo "Deploy OK"

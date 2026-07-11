@@ -1,7 +1,9 @@
-# Data — never commit raw or processed data
+# ── Data (never commit raw or processed parquets) ────────────────────────────
 data/
+!frontend/src/data/
+!frontend/src/data/**
 
-# Python
+# ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -9,24 +11,41 @@ __pycache__/
 venv/
 env/
 
-# Environment
+# ── Environment & secrets ─────────────────────────────────────────────────────
 .env
 
-# Jupyter
+# ── Jupyter ───────────────────────────────────────────────────────────────────
 .ipynb_checkpoints/
 *.ipynb
 
-# OS
+# ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 
-# Models & vectors (too large for git)
+# ── Large model/vector files ──────────────────────────────────────────────────
 *.pt
 *.bin
 *.pkl
 *.faiss
 *.npy
 
-# Alteryx outputs
+# ── Logs & process output ─────────────────────────────────────────────────────
+logs/
+nohup.out
+*.log
+
+# ── IDE & editor ──────────────────────────────────────────────────────────────
+.claude/
+.vscode/
+.idea/
+
+# ── Test cache ────────────────────────────────────────────────────────────────
+.pytest_cache/
+
+# ── Frontend build ────────────────────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+
+# ── Alteryx ───────────────────────────────────────────────────────────────────
 alteryx/*.yxdb
 alteryx/*.yxmd
