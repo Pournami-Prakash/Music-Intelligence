@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import LottiePlayer from '../components/LottiePlayer'
 import { CountUp } from '../components/Observatory'
 import { PvPage, PvTop, PvHero, PvPanel } from '../components/Premium'
-import { apiUrl } from '../lib/api'
 
 const ACCENT = '#94A3B8'
 const ERAS = ['1960s', '1970s', '1980s', '1990s', '2000s', '2010s', '2020s']
@@ -15,7 +14,7 @@ export default function TimeCapsule() {
   const load = (e) => {
     setLoading(true)
     setData(null)
-    fetch(apiUrl(`/api/time-capsule?era=${encodeURIComponent(e)}&limit=20`))
+    fetch(`/data/time-capsule-${e}.json`)
       .then(r => r.ok ? r.json() : null)
       .then(d => setData(d))
       .catch(() => {})

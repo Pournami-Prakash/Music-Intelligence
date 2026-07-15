@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import LottiePlayer from '../components/LottiePlayer'
 import { PvPage, PvTop, PvHero, PvPanel } from '../components/Premium'
-import { errorMessage, getJson } from '../lib/api'
+import { errorMessage } from '../lib/api'
 
 const DRIFTS = ['atlas-drift-1', 'atlas-drift-2', 'atlas-drift-3', 'atlas-drift-4']
 
@@ -20,7 +20,8 @@ export default function GenreWeather() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    getJson('/api/genre-weather/regions')
+    fetch('/data/genre-weather.json')
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('unreachable')))
       .then(d => {
         if (d.genres?.length) setGenres(d.genres)
         else { setGenres(FALLBACK); setDemo(true); setError('empty genre list') }

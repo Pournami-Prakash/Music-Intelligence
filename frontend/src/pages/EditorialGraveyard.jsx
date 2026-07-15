@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import LottiePlayer from '../components/LottiePlayer'
 import { PvPage, PvTop, PvHero, PvPanel } from '../components/Premium'
-import { apiUrl } from '../lib/api'
 
 const ACCENT = '#94A3B8'
 const SORTS = ['Recently removed', 'Longest run']
@@ -12,7 +11,7 @@ export default function EditorialGraveyard() {
   const [selected, setSelected] = useState(null)
 
   useEffect(() => {
-    fetch(apiUrl('/api/editorial-graveyard'))
+    fetch('/data/editorial-graveyard.json')
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d?.tracks) { setData(d); setSelected(d.tracks[0]) } })
       .catch(() => {})
