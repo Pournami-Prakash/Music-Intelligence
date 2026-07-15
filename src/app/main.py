@@ -18,7 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.app.cache import (
-    _load_computed, _load_faiss, _get_artist_adj,
+    _load_computed, _get_artist_adj,
 )
 from src.app.routes import stats, artists, tracks, discovery, social, playlists, embeddings, soundtrack
 
@@ -44,7 +44,6 @@ def _startup_warmup():
 
     def _warm():
         threads = [
-            threading.Thread(target=_load_faiss, daemon=True),
             threading.Thread(target=_get_artist_adj, daemon=True),
             threading.Thread(target=lambda: _load_computed("processed/editorial_playlist_tracks.parquet"), daemon=True),
             threading.Thread(target=lambda: _load_computed("processed/editorial_playlists.parquet"), daemon=True),

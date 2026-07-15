@@ -3,7 +3,7 @@ from typing import Optional
 import pandas as pd
 from fastapi import APIRouter, HTTPException
 
-from src.app.cache import _load_computed, _load_faiss, con
+from src.app.cache import _load_computed, con
 from src.app.helpers import _to_list, _resolve_artist_row
 from src.storage.duckdb_r2 import R2_PATH
 
@@ -15,7 +15,7 @@ def search_tracks(q: str = "", limit: int = 10):
     if len(q.strip()) < 2:
         return {"results": []}
 
-    _, vocab = _load_faiss()
+    vocab = _load_computed("embeddings/track2vec_vocab.parquet")
     if vocab is None:
         safe = q.replace("'", "''")
         try:

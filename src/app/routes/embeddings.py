@@ -1,142 +1,133 @@
-import numpy as np
+"""
+Doppelganger + Transition Finder — track2vec similarity over Upstash Vector.
 
+The 393 MB FAISS index no longer lives in the API. Vectors are in Upstash
+(top ~10K most-popular tracks on the free tier); the API keeps only the 21 MB
+vocab (uri/artist ↔ id lookups) in memory. Endpoints degrade to an empty result
+for artists whose tracks aren't in the vector index (obscure long tail).
+"""
+import numpy as np
 from fastapi import APIRouter, HTTPException
 
-from src.app.cache import _load_computed, _load_faiss, _chart_for_track
-from src.app.helpers import _uri_to_vec
+from src.app.cache import _load_computed, _chart_for_track
+from src.app.upstash import upstash_ready, upstash_fetch_vectors, upstash_query
 
 router = APIRouter()
 
 
-def _normalize_l2(vec: np.ndarray) -> None:
-    try:
-        import faiss
-    except Exception:
-        raise HTTPException(503, detail="faiss_index_not_ready")
-    faiss.normalize_L2(vec)
+def _vocab():
+    return _load_computed("embeddings/track2vec_vocab.parquet")
+
+
+def _normalize(v: np.ndarray) -> np.ndarray:
+    n = float(np.linalg.norm(v))
+    return (v / n).astype("float32") if n > 0 else v.astype("float32")
 
 
 @router.get("/api/transition-finder")
 def transition_finder(from_uri: str, to_uri: str = "", to_artist: str = "", limit: int = 5):
-    index, vocab = _load_faiss()
-    if index is None:
-        raise HTTPException(503, detail="faiss_index_not_ready")
+    if not upstash_ready():
+        raise HTTPException(503, detail="vector_index_not_ready")
+    vocab = _vocab()
+    if vocab is None:
+        raise HTTPException(503, detail="not_ready")
 
-    src_vec = _uri_to_vec(from_uri, index, vocab)
-    if src_vec is None:
+    src_rows = vocab[vocab["track_uri"] == from_uri]
+    if src_rows.empty:
         raise HTTPException(404, detail="source_track_not_found")
+    src_id = str(int(src_rows.iloc[0]["idx"]))
 
+    tgt_rows = None
     if to_uri:
-        tgt_vec = _uri_to_vec(to_uri, index, vocab)
-        if tgt_vec is None:
+        tgt_rows = vocab[vocab["track_uri"] == to_uri]
+        if tgt_rows.empty:
             raise HTTPException(404, detail="target_track_not_found")
+        tgt_ids = [str(int(tgt_rows.iloc[0]["idx"]))]
     elif to_artist:
-        artist_rows = vocab[vocab["artist_name"].str.lower() == to_artist.lower()]
-        if artist_rows.empty:
-            artist_rows = vocab[vocab["artist_name"].str.lower().str.contains(to_artist.lower(), na=False)]
-        if artist_rows.empty:
+        arows = vocab[vocab["artist_name"].str.lower() == to_artist.lower()]
+        if arows.empty:
+            arows = vocab[vocab["artist_name"].str.lower().str.contains(to_artist.lower(), na=False)]
+        if arows.empty:
             raise HTTPException(404, detail="target_artist_not_found")
-        vecs = []
-        for idx in artist_rows["idx"].tolist()[:30]:
-            v = np.zeros(index.d, dtype="float32")
-            index.reconstruct(int(idx), v)
-            vecs.append(v)
-        tgt_vec = np.mean(vecs, axis=0, keepdims=True).astype("float32")
-        _normalize_l2(tgt_vec)
+        tgt_ids = [str(int(i)) for i in arows["idx"].tolist()[:30]]
     else:
         raise HTTPException(400, detail="provide to_uri or to_artist")
 
-    mid_vec = ((src_vec + tgt_vec) / 2).astype("float32")
-    _normalize_l2(mid_vec)
+    vecs = upstash_fetch_vectors([src_id] + tgt_ids)
+    if src_id not in vecs:
+        raise HTTPException(404, detail="source_track_not_in_index")
+    tgt_list = [vecs[i] for i in tgt_ids if i in vecs]
+    if not tgt_list:
+        raise HTTPException(404, detail="target_not_in_index")
 
-    src_uri_set = {from_uri, to_uri}
-    _, I = index.search(mid_vec, limit + 20)
+    mid = _normalize(((vecs[src_id] + np.mean(tgt_list, axis=0)) / 2).astype("float32"))
 
-    results = []
-    for i in I[0]:
-        if i < 0:
-            continue
-        row = vocab.iloc[int(i)]
-        uri = row["track_uri"]
-        if uri in src_uri_set:
+    exclude = {from_uri, to_uri}
+    bridges = []
+    for item in upstash_query(mid, top_k=limit + 20):
+        md = item.get("metadata") or {}
+        uri = md.get("uri")
+        if uri in exclude:
             continue
         ch = _chart_for_track(uri)
-        results.append({
-            "uri":        uri,
-            "title":      row["track_name"],
-            "artist":     row["artist_name"],
-            "chart_peak": int(ch["chart_peak"]) if ch else None,
-        })
-        if len(results) >= limit:
+        bridges.append({"uri": uri, "title": md.get("title"), "artist": md.get("artist"),
+                        "chart_peak": int(ch["chart_peak"]) if ch else None})
+        if len(bridges) >= limit:
             break
 
-    src_row = vocab[vocab["track_uri"] == from_uri].iloc[0]
-    to_row  = vocab[vocab["track_uri"] == to_uri] if to_uri else None
-    to_info = (
-        {"uri": to_uri, "title": to_row.iloc[0]["track_name"], "artist": to_row.iloc[0]["artist_name"]}
-        if to_uri and to_row is not None and not to_row.empty
-        else {"uri": to_uri, "title": None, "artist": to_artist or None}
-    )
+    src = src_rows.iloc[0]
+    to_info = ({"uri": to_uri, "title": tgt_rows.iloc[0]["track_name"], "artist": tgt_rows.iloc[0]["artist_name"]}
+               if to_uri and tgt_rows is not None else {"uri": to_uri, "title": None, "artist": to_artist or None})
     return {
-        "from":    {"uri": from_uri, "title": src_row["track_name"], "artist": src_row["artist_name"]},
+        "from":    {"uri": from_uri, "title": src["track_name"], "artist": src["artist_name"]},
         "to":      to_info,
-        "bridges": results,
+        "bridges": bridges,
     }
 
 
 @router.get("/api/doppelganger/{artist}")
 def doppelganger(artist: str, limit: int = 5):
-    index, vocab = _load_faiss()
-    if index is None:
-        raise HTTPException(503, detail="faiss_index_not_ready")
+    if not upstash_ready():
+        raise HTTPException(503, detail="vector_index_not_ready")
+    vocab = _vocab()
+    if vocab is None:
+        raise HTTPException(503, detail="not_ready")
 
-    artist_rows = vocab[vocab["artist_name"].str.lower() == artist.lower()]
-    if artist_rows.empty:
-        artist_rows = vocab[vocab["artist_name"].str.lower().str.contains(artist.lower(), na=False)]
-    if artist_rows.empty:
+    arows = vocab[vocab["artist_name"].str.lower() == artist.lower()]
+    if arows.empty:
+        arows = vocab[vocab["artist_name"].str.lower().str.contains(artist.lower(), na=False)]
+    if arows.empty:
         raise HTTPException(404, detail="artist_not_found")
 
-    artist_name = artist_rows.iloc[0]["artist_name"]
-    query_idxs  = artist_rows["idx"].tolist()[:50]
+    artist_name = arows.iloc[0]["artist_name"]
+    query_ids = [str(int(i)) for i in arows["idx"].tolist()[:50]]
+    vecs = upstash_fetch_vectors(query_ids)
 
-    vecs = []
-    for idx in query_idxs:
-        v = np.zeros(index.d, dtype="float32")
-        index.reconstruct(int(idx), v)
-        vecs.append(v)
+    # Artist's tracks aren't in the (popular-tracks) vector index → clean empty result.
+    if not vecs:
+        return {"artist": artist_name, "track_count": 0, "doppelgangers": [], "note": "not_in_vector_index"}
 
-    centroid = np.mean(vecs, axis=0, keepdims=True).astype("float32")
-    _normalize_l2(centroid)
-
-    D, I = index.search(centroid, min(1500, index.ntotal))
+    centroid = _normalize(np.mean(list(vecs.values()), axis=0).astype("float32"))
 
     artist_scores: dict[str, list[float]] = {}
-    for dist, idx in zip(D[0], I[0]):
-        if idx < 0:
+    for item in upstash_query(centroid, top_k=1000):
+        md = item.get("metadata") or {}
+        a = md.get("artist")
+        if not a or a.lower() == artist_name.lower():
             continue
-        row = vocab.iloc[int(idx)]
-        a   = row["artist_name"]
-        if a.lower() == artist_name.lower():
-            continue
-        artist_scores.setdefault(a, []).append(float(dist))
+        artist_scores.setdefault(a, []).append(float(item.get("score", 0.0)))
 
-    # A single stray track near the centroid is usually noise; genuine
-    # doppelgängers have several tracks in the neighborhood. Rank by how many
-    # tracks land nearby, then by average closeness — falling back to
-    # single-track matches only if we don't have enough multi-track ones.
-    def _artist_score(sims):
+    # Rank by neighbourhood density (multiple nearby tracks = a real match),
+    # then closeness; fall back to single-track matches to fill the list.
+    def _score(sims):
         return sum(sorted(sims, reverse=True)[:3]) / min(3, len(sims))
 
-    multi = sorted(
-        ((a, _artist_score(s), len(s)) for a, s in artist_scores.items() if len(s) >= 2),
-        key=lambda x: (-x[2], -x[1]),
-    )
+    multi = sorted(((a, _score(s), len(s)) for a, s in artist_scores.items() if len(s) >= 2),
+                   key=lambda x: (-x[2], -x[1]))
     ranked = [(a, sc) for a, sc, _ in multi[:limit]]
     if len(ranked) < limit:
-        singles = sorted(
-            ((a, _artist_score(s)) for a, s in artist_scores.items() if len(s) == 1),
-            key=lambda x: -x[1],
-        )
+        singles = sorted(((a, _score(s)) for a, s in artist_scores.items() if len(s) == 1),
+                         key=lambda x: -x[1])
         ranked += singles[:limit - len(ranked)]
 
     lastfm_df = _load_computed("enrichment/artist_lastfm.parquet")
@@ -155,9 +146,6 @@ def doppelganger(artist: str, limit: int = 5):
 
     return {
         "artist":        artist_name,
-        "track_count":   len(query_idxs),
-        "doppelgangers": [
-            {"name": name, "similarity": round(score, 4), "tags": _tags(name)}
-            for name, score in ranked
-        ],
+        "track_count":   len(vecs),
+        "doppelgangers": [{"name": n, "similarity": round(sc, 4), "tags": _tags(n)} for n, sc in ranked],
     }

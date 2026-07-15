@@ -15,7 +15,6 @@ fastapi>=0.111.0
 uvicorn>=0.29.0
 pydantic>=2.0.0
 
-# Needed only for embedding endpoints; routes return 503 if the FAISS artifact
-# is unavailable, but the package keeps those endpoints functional when R2 has
-# the index.
-faiss-cpu>=1.8.0
+# NOTE: faiss-cpu is intentionally NOT here. Vector similarity (Doppelganger /
+# Transition) now runs against Upstash Vector over HTTP, so the API no longer
+# loads the 393 MB FAISS index — this is what keeps the serving footprint small.
