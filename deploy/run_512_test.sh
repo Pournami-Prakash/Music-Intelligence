@@ -30,11 +30,12 @@ for _ in $(seq 1 60); do
 done
 docker logs "$NAME" 2>&1 | grep -i "LD_PRELOAD" || echo "  (no LD_PRELOAD line — jemalloc may not be active)"
 
-# Background RSS sampler → file (MiB numbers only)
-( while docker inspect "$NAME" >/dev/null 2>&1; do
+# Background RSS sampler → file (MiB numbers only). Stops when the container is
+# no longer *running* (a -d container without --rm still "exists" after exit).
+( while [ "$(docker inspect -f '{{.State.Running}}' "$NAME" 2>/dev/null)" = "true" ]; do
     docker stats --no-stream --format '{{.MemUsage}}' "$NAME" 2>/dev/null | awk '{gsub(/MiB.*/,"",$1); print $1}'
     sleep 1
-  done ) & SAMPLER=$!
+  done ) >> "$SAMPLES" & SAMPLER=$!
 
 peak() { sort -n "$SAMPLES" 2>/dev/null | tail -1; }
 
