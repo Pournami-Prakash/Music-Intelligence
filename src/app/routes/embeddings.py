@@ -11,8 +11,9 @@ from typing import Optional
 import numpy as np
 from fastapi import APIRouter, HTTPException
 
-from src.app.cache import _load_computed, local_parquet, con, _chart_for_track
+from src.app.cache import _load_computed, local_parquet, duck_one, duck_all, _chart_for_track
 from src.app.upstash import upstash_ready, upstash_fetch_vectors, upstash_query
+from src.app.rcache import ttl_cache
 
 router = APIRouter()
 
@@ -29,10 +30,10 @@ def _vocab_by_uri(uri: str) -> Optional[dict]:
     path = _vpath()
     if path is None:
         return None
-    r = con.execute(
+    r = duck_one(
         f"SELECT idx, track_name, artist_name FROM read_parquet('{path}') WHERE track_uri = ? LIMIT 1",
         [uri],
-    ).fetchone()
+    )
     return {"idx": int(r[0]), "track_name": r[1], "artist_name": r[2]} if r else None
 
 
@@ -41,15 +42,15 @@ def _vocab_by_artist(name: str, limit: int) -> tuple[Optional[str], list[int]]:
     path = _vpath()
     if path is None:
         return None, []
-    rows = con.execute(
+    rows = duck_all(
         f"SELECT idx, artist_name FROM read_parquet('{path}') WHERE artist_name_lc = lower(?) LIMIT {int(limit)}",
         [name],
-    ).fetchall()
+    )
     if not rows:
-        rows = con.execute(
+        rows = duck_all(
             f"SELECT idx, artist_name FROM read_parquet('{path}') WHERE artist_name_lc LIKE '%' || lower(?) || '%' LIMIT {int(limit)}",
             [name],
-        ).fetchall()
+        )
     if not rows:
         return None, []
     return rows[0][1], [int(r[0]) for r in rows]
@@ -119,6 +120,7 @@ def transition_finder(from_uri: str, to_uri: str = "", to_artist: str = "", limi
 
 
 @router.get("/api/doppelganger/{artist}")
+@ttl_cache()
 def doppelganger(artist: str, limit: int = 5):
     if not upstash_ready():
         raise HTTPException(503, detail="vector_index_not_ready")

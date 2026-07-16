@@ -16,10 +16,9 @@ from typing import Optional
 
 import pandas as pd
 
-from src.app.cache import local_parquet, con
+from src.app.cache import local_parquet, duck_slot, duck_one, duck_all
 
 _KEY = "computed/artist_edges.parquet"
-_reg_seq = 0
 
 
 def _path() -> Optional[str]:
@@ -37,23 +36,23 @@ def resolve_artist(name: str) -> Optional[str]:
     if path is None:
         return None
     n = name.lower()
-    exact = con.execute(f"""
+    exact = duck_one(f"""
         SELECT name FROM (
             SELECT artist_a_name AS name FROM read_parquet('{path}') WHERE lower(artist_a_name) = ?
             UNION
             SELECT artist_b_name AS name FROM read_parquet('{path}') WHERE lower(artist_b_name) = ?
         ) LIMIT 1
-    """, [n, n]).fetchone()
+    """, [n, n])
     if exact:
         return exact[0]
     like = f"%{n}%"
-    fuzzy = con.execute(f"""
+    fuzzy = duck_one(f"""
         SELECT name FROM (
             SELECT artist_a_name AS name FROM read_parquet('{path}') WHERE lower(artist_a_name) LIKE ?
             UNION
             SELECT artist_b_name AS name FROM read_parquet('{path}') WHERE lower(artist_b_name) LIKE ?
         ) LIMIT 1
-    """, [like, like]).fetchone()
+    """, [like, like])
     return fuzzy[0] if fuzzy else None
 
 
@@ -62,13 +61,13 @@ def artist_neighbors(name: str) -> dict[str, int]:
     path = _path()
     if path is None:
         return {}
-    rows = con.execute(f"""
+    rows = duck_all(f"""
         SELECT artist_b_name AS nb, shared_playlists AS w
           FROM read_parquet('{path}') WHERE artist_a_name = ?
         UNION ALL
         SELECT artist_a_name AS nb, shared_playlists AS w
           FROM read_parquet('{path}') WHERE artist_b_name = ?
-    """, [name, name]).fetchall()
+    """, [name, name])
     return {nb: int(w) for nb, w in rows}
 
 
@@ -77,11 +76,11 @@ def edge_weight(a: str, b: str) -> int:
     path = _path()
     if path is None:
         return 0
-    r = con.execute(f"""
+    r = duck_one(f"""
         SELECT max(shared_playlists) FROM read_parquet('{path}')
         WHERE (artist_a_name = ? AND artist_b_name = ?)
            OR (artist_a_name = ? AND artist_b_name = ?)
-    """, [a, b, b, a]).fetchone()
+    """, [a, b, b, a])
     return int(r[0]) if r and r[0] is not None else 0
 
 
@@ -94,21 +93,16 @@ def neighbors_of_many(names: set[str], fan: Optional[int] = None) -> dict[str, l
     path = _path()
     if path is None or not names:
         return {}
-    global _reg_seq
-    _reg_seq += 1
-    rel = f"_frontier_{_reg_seq}"
-    frontier_df = pd.DataFrame({"n": list(names)})
-    con.register(rel, frontier_df)
-    try:
-        rows = con.execute(f"""
+    # Cursor-local registration + bounded slot → safe under concurrent requests.
+    with duck_slot() as cur:
+        cur.register("frontier", pd.DataFrame({"n": list(names)}))
+        rows = cur.execute(f"""
             SELECT artist_a_name AS src, artist_b_name AS nb, shared_playlists AS w
-              FROM read_parquet('{path}') WHERE artist_a_name IN (SELECT n FROM {rel})
+              FROM read_parquet('{path}') WHERE artist_a_name IN (SELECT n FROM frontier)
             UNION ALL
             SELECT artist_b_name AS src, artist_a_name AS nb, shared_playlists AS w
-              FROM read_parquet('{path}') WHERE artist_b_name IN (SELECT n FROM {rel})
+              FROM read_parquet('{path}') WHERE artist_b_name IN (SELECT n FROM frontier)
         """).fetchall()
-    finally:
-        con.unregister(rel)
 
     out: dict[str, list[tuple[str, int]]] = {}
     for src, nb, w in rows:

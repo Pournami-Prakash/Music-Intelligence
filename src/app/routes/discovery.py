@@ -5,7 +5,8 @@ from typing import Optional
 import pandas as pd
 from fastapi import APIRouter, HTTPException
 
-from src.app.cache import _load_computed, local_parquet, con, _chart_for_track, _chart_for_name
+from src.app.cache import _load_computed, local_parquet, duck_slot, _chart_for_track, _chart_for_name
+from src.app.rcache import ttl_cache
 
 router = APIRouter()
 
@@ -309,6 +310,7 @@ def _time_capsule_response(era: str, df: pd.DataFrame,
 
 
 @router.get("/api/mood-contradiction")
+@ttl_cache()
 def mood_contradiction(mood: str = "sad", limit: int = 20):
     playlist_df = _load_computed("processed/editorial_playlists.parquet")  # small (~5 MB)
     ept_path    = local_parquet("processed/editorial_tracks_slim.parquet")
@@ -333,30 +335,25 @@ def mood_contradiction(mood: str = "sad", limit: int = 20):
 
     # Count appearances in mood vs contrary playlists in one DuckDB pass over the
     # local editorial-track parquet — only the small ranked result is materialised.
-    mrel = f"mood_pids_{id(mood_ids)}"
-    crel = f"contrary_pids_{id(contrary_ids)}"
-    con.register(mrel, pd.DataFrame({"pid": list(mood_ids)}))
-    con.register(crel, pd.DataFrame({"pid": list(contrary_ids)}))
-    try:
-        merged = con.execute(f"""
+    with duck_slot() as cur:  # cursor-local registrations + bounded concurrency
+        cur.register("mood_pids", pd.DataFrame({"pid": list(mood_ids)}))
+        cur.register("contrary_pids", pd.DataFrame({"pid": list(contrary_ids)}))
+        merged = cur.execute(f"""
             WITH e AS (
                 SELECT track_name, artist_name, playlist_id
                 FROM read_parquet('{ept_path.as_posix()}')
-                WHERE playlist_id IN (SELECT pid FROM {mrel})
-                   OR playlist_id IN (SELECT pid FROM {crel})
+                WHERE playlist_id IN (SELECT pid FROM mood_pids)
+                   OR playlist_id IN (SELECT pid FROM contrary_pids)
             )
             SELECT track_name, artist_name,
-                sum(CASE WHEN playlist_id IN (SELECT pid FROM {mrel}) THEN 1 ELSE 0 END) AS mood_appearances,
-                sum(CASE WHEN playlist_id IN (SELECT pid FROM {crel}) THEN 1 ELSE 0 END) AS contrary_appearances
+                sum(CASE WHEN playlist_id IN (SELECT pid FROM mood_pids) THEN 1 ELSE 0 END) AS mood_appearances,
+                sum(CASE WHEN playlist_id IN (SELECT pid FROM contrary_pids) THEN 1 ELSE 0 END) AS contrary_appearances
             FROM e
             GROUP BY track_name, artist_name
             HAVING mood_appearances > 0 AND contrary_appearances > 0
             ORDER BY contrary_appearances DESC
             LIMIT {int(limit)}
         """).df()
-    finally:
-        con.unregister(mrel)
-        con.unregister(crel)
 
     merged["contradiction_score"] = (
         merged["contrary_appearances"] / merged["mood_appearances"].clip(lower=1)

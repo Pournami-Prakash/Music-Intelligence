@@ -3,7 +3,8 @@ from typing import Optional
 import pandas as pd
 from fastapi import APIRouter, HTTPException
 
-from src.app.cache import _load_computed, local_parquet, con
+from src.app.cache import _load_computed, local_parquet, duck_slot
+from src.app.rcache import ttl_cache
 from src.app.helpers import _to_list, _extract_playlist_id
 from src.app.models import GroupBlendBody, ForensicsBody
 from src.app.graph import (
@@ -14,6 +15,7 @@ router = APIRouter()
 
 
 @router.get("/api/six-degrees")
+@ttl_cache()
 def six_degrees(from_artist: str = "Drake", to_artist: str = "Radiohead", max_depth: int = 6):
     canon_from = resolve_artist(from_artist)
     if canon_from is None:
@@ -161,6 +163,7 @@ def group_blend(body: GroupBlendBody):
 
 
 @router.get("/api/overlap-arena")
+@ttl_cache()
 def overlap_arena(a: str = "Drake", b: str = "Taylor Swift"):
     stats_df = _load_computed("computed/artist_stats.parquet")
     if stats_df is None:
@@ -209,6 +212,7 @@ def overlap_arena(a: str = "Drake", b: str = "Taylor Swift"):
 
 
 @router.get("/api/collision")
+@ttl_cache()
 def collision(a: str = "Taylor Swift", b: str = "Kendrick Lamar"):
     stats_df = _load_computed("computed/artist_stats.parquet")
     if stats_df is None:
@@ -303,19 +307,16 @@ def forensics(body: ForensicsBody):
                 artist_q, track_q = "", t.strip().lower()
             q_rows.append({"id": i, "aq": artist_q, "tq": track_q})
 
-        rel = f"forensic_q_{id(q_rows)}"
-        con.register(rel, pd.DataFrame(q_rows))
-        try:
-            hit = con.execute(f"""
+        with duck_slot() as cur:  # cursor-local registration + bounded concurrency
+            cur.register("forensic_q", pd.DataFrame(q_rows))
+            hit = cur.execute(f"""
                 SELECT count(DISTINCT q.id) AS hits
-                FROM {rel} q
+                FROM forensic_q q
                 JOIN read_parquet('{ept_path.as_posix()}') e
                   ON strpos(lower(e.track_name), q.tq) > 0
                  AND (q.aq = '' OR strpos(lower(e.artist_name), q.aq) > 0)
             """).fetchone()
-            editorial_hits = int(hit[0]) if hit and hit[0] is not None else 0
-        finally:
-            con.unregister(rel)
+        editorial_hits = int(hit[0]) if hit and hit[0] is not None else 0
 
         editorial_pct = round(editorial_hits / len(tracks) * 100) if tracks else 0
         organic_pct   = 100 - editorial_pct

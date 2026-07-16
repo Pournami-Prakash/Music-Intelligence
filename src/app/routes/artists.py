@@ -1,4 +1,5 @@
 import math
+import os
 from typing import Optional
 
 import pandas as pd
@@ -8,6 +9,7 @@ from src.app.cache import (
     _load_computed, sp, _image_cache,
 )
 from src.app.graph import resolve_artist, artist_neighbors
+from src.app.rcache import ttl_cache
 from src.app.helpers import _to_list, _resolve_artist_row, _jaccard
 from src.app.models import ArtistsBatchBody
 
@@ -77,7 +79,7 @@ def artist_images_batch(body: ArtistsBatchBody):
 
 @router.get("/api/artist-ubiquity/{artist}")
 def artist_ubiquity(artist: str, artist_uri: Optional[str] = None):
-    from src.app.cache import con
+    from src.app.cache import duck_df
     from src.storage.duckdb_r2 import R2_PATH
 
     df = _load_computed("computed/artist_stats.parquet")
@@ -97,8 +99,15 @@ def artist_ubiquity(artist: str, artist_uri: Optional[str] = None):
                 ],
             }
 
+    # Not in the top-10K stats table. Computing ubiquity for the long tail means
+    # a join over the 806 MB playlist_tracks table, which OOMs a small serving
+    # box — so it's gated behind the heavy-endpoints flag; otherwise degrade to a
+    # clean 404 (consistent with the top-10K coverage of the other features).
+    if os.getenv("ENABLE_LEGACY_HEAVY_ENDPOINTS", "").lower() not in {"1", "true", "yes"}:
+        raise HTTPException(404, detail="artist_not_ranked")
+
     try:
-        result = con.execute(f"""
+        result = duck_df(f"""
             SELECT t.artist_name,
                    COUNT(DISTINCT pt.pid) AS playlist_count
             FROM read_parquet('{R2_PATH}/processed/playlist_tracks.parquet') pt
@@ -107,7 +116,7 @@ def artist_ubiquity(artist: str, artist_uri: Optional[str] = None):
             WHERE lower(t.artist_name) = lower('{artist.replace("'", "''")}')
             GROUP BY t.artist_name
             LIMIT 1
-        """).df()
+        """)
         if result.empty:
             raise HTTPException(404, detail="artist_not_found")
         pc = int(result.iloc[0]["playlist_count"])
@@ -157,6 +166,7 @@ def artist_habitat(artist: str, artist_uri: Optional[str] = None):
 
 
 @router.get("/api/compass/{artist}")
+@ttl_cache()
 def compass(artist: str):
     canonical = resolve_artist(artist)
     if canonical is None:

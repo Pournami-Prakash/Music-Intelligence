@@ -3,7 +3,7 @@ from typing import Optional
 import pandas as pd
 from fastapi import APIRouter, HTTPException
 
-from src.app.cache import _load_computed, local_parquet, con
+from src.app.cache import _load_computed, local_parquet, duck_df, duck_one
 from src.app.helpers import _to_list, _resolve_artist_row
 from src.storage.duckdb_r2 import R2_PATH
 
@@ -30,14 +30,14 @@ def search_tracks(q: str = "", limit: int = 10):
             # idx is popularity rank (0 = most popular), so ORDER BY pri, idx
             # returns prefix matches first, most-popular version of each first —
             # restoring the ranking the old popularity-ordered vocab gave.
-            df = con.execute(f"""
+            df = duck_df(f"""
                 SELECT track_name, artist_name, track_uri,
                        CASE WHEN track_name_lc LIKE '{safe_q}%' THEN 0 ELSE 1 END AS pri
                 FROM read_parquet('{vpath.as_posix()}')
                 WHERE track_name_lc LIKE '%{safe_q}%'
                 ORDER BY pri, idx
                 LIMIT {limit * 4}
-            """).df()
+            """)
             for _, row in df.iterrows():
                 key = (row["track_name"], row["artist_name"])
                 if key in seen:
@@ -58,12 +58,12 @@ def search_tracks(q: str = "", limit: int = 10):
     if len(results) < limit:
         try:
             safe = q_lower.replace("'", "''")
-            df = con.execute(f"""
+            df = duck_df(f"""
                 SELECT DISTINCT track_name, artist_name, track_uri
                 FROM read_parquet('{R2_PATH}/processed/tracks.parquet')
                 WHERE lower(track_name) LIKE '{safe}%'
                 ORDER BY track_name LIMIT {limit}
-            """).df()
+            """)
             for _, r in df.iterrows():
                 key = (r["track_name"], r["artist_name"])
                 if key in seen:
@@ -90,12 +90,12 @@ def song_passport(track: str):
         ts_path = local_parquet("computed/track_stats_lookup.parquet")
         rows = None
         if ts_path is not None:
-            rows = con.execute(f"""
+            rows = duck_df(f"""
                 SELECT track_uri, track_name, artist_name, playlist_count, top_playlist_names
                 FROM read_parquet('{ts_path.as_posix()}')
                 WHERE track_name_lc = lower('{safe}')
                 ORDER BY playlist_count DESC
-            """).df()
+            """)
         if rows is not None and not rows.empty:
             row           = rows.iloc[0]
             pc            = int(row["playlist_count"])
@@ -105,7 +105,7 @@ def song_passport(track: str):
             names_df      = pd.DataFrame({"name": _to_list(row.get("top_playlist_names"))})
             other_artists = rows["artist_name"].iloc[1:].tolist() if len(rows) > 1 else []
         else:
-            combined_df = con.execute(f"""
+            combined_df = duck_df(f"""
                 WITH matched AS (
                     SELECT t.track_uri, t.track_name, t.artist_name, pt.pid
                     FROM read_parquet('{R2_PATH}/processed/playlist_tracks.parquet') pt
@@ -121,7 +121,7 @@ def song_passport(track: str):
                 WHERE p.name IS NOT NULL AND length(trim(p.name)) > 0
                 GROUP BY m.track_uri, m.track_name, m.artist_name
                 ORDER BY playlist_count DESC LIMIT 1
-            """).df()
+            """)
             if combined_df.empty:
                 raise HTTPException(404, detail="track_not_found")
             pc            = int(combined_df.iloc[0]["playlist_count"])
@@ -137,10 +137,10 @@ def song_passport(track: str):
         # so this point lookup prunes to one group instead of a 195 MB DataFrame.
         lb_path = local_parquet("enrichment/listenbrainz_lookup.parquet")
         if lb_path is not None:
-            lb = con.execute(
+            lb = duck_one(
                 f"SELECT listen_count, isrc FROM read_parquet('{lb_path.as_posix()}') "
                 f"WHERE spotify_track_uri = ? LIMIT 1", [track_uri],
-            ).fetchone()
+            )
             if lb is not None:
                 v = lb[0]
                 lb_listen_count = int(v) if v is not None and int(v) > 0 else None

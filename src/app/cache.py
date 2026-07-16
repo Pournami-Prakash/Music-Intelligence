@@ -21,7 +21,9 @@ import json
 import os
 import sys
 import tempfile
+import threading
 import time
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional
 
@@ -38,6 +40,44 @@ from src.storage.spotify import SpotifyClient
 r2  = R2Client()
 sp  = SpotifyClient()
 con = get_con()
+
+
+# DuckDB's memory_limit is a single budget for the whole instance, shared by
+# every cursor. Under FastAPI's threadpool, many concurrent heavy scans contend
+# for it and throw OutOfMemoryException instead of queueing. This semaphore caps
+# how many DuckDB queries run at once so total memory stays bounded on a small
+# box; excess requests wait their turn. Tune via DUCKDB_MAX_CONCURRENCY.
+_DUCK_SEM = threading.BoundedSemaphore(int(os.getenv("DUCKDB_MAX_CONCURRENCY", "2")))
+
+
+@contextmanager
+def duck_slot():
+    """Acquire a concurrency slot and yield a fresh, cursor-isolated DuckDB
+    handle. Use for register-blocks; hold the slot until results are
+    materialised. Do NOT nest (each graph/query helper takes its own slot)."""
+    _DUCK_SEM.acquire()
+    try:
+        yield con.cursor()
+    finally:
+        _DUCK_SEM.release()
+
+
+def duck_df(sql: str, params=None):
+    """Run a query under a concurrency slot, return a DataFrame."""
+    with duck_slot() as cur:
+        return (cur.execute(sql, params) if params is not None else cur.execute(sql)).df()
+
+
+def duck_one(sql: str, params=None):
+    """Run a query under a concurrency slot, return one row (or None)."""
+    with duck_slot() as cur:
+        return (cur.execute(sql, params) if params is not None else cur.execute(sql)).fetchone()
+
+
+def duck_all(sql: str, params=None):
+    """Run a query under a concurrency slot, return all rows."""
+    with duck_slot() as cur:
+        return (cur.execute(sql, params) if params is not None else cur.execute(sql)).fetchall()
 
 # ── In-memory cache ────────────────────────────────────────────────────────────
 _cache:          dict[str, pd.DataFrame] = {}

@@ -2,6 +2,10 @@
 data/
 !frontend/src/data/
 !frontend/src/data/**
+# Precomputed snapshot JSON IS shipped with the frontend (served as static
+# assets by Vercel); the pages 404 without it, so it must be tracked.
+!frontend/public/data/
+!frontend/public/data/**
 
 # ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/

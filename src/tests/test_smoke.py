@@ -10,11 +10,19 @@ Usage:
     BASE_URL=http://localhost:8000 pytest src/tests/test_smoke.py -v
 """
 
+import json as _json
 import os
+from pathlib import Path
+
 import pytest
 import requests
 
 BASE = os.environ.get("BASE_URL", "http://localhost:8000").rstrip("/")
+
+# Snapshot pages are served as static JSON by the frontend; their heavy backend
+# routes are gated off by default (ENABLE_LEGACY_HEAVY_ENDPOINTS).
+STATIC_DATA_DIR = Path(__file__).resolve().parents[2] / "frontend" / "public" / "data"
+_LEGACY_ON = os.environ.get("ENABLE_LEGACY_HEAVY_ENDPOINTS", "").lower() in {"1", "true", "yes"}
 
 
 def get(path: str, params: dict | None = None, timeout: int = 10) -> requests.Response:
@@ -181,14 +189,18 @@ def test_trend_explorer():
 
 
 def test_editorial_graveyard():
-    # 222 MB editorial parquet — up to 20s on cold start before warmup completes
+    # Served as a static snapshot; heavy backend route gated off (410) by default.
     r = get("/api/editorial-graveyard", timeout=30)
-    assert r.status_code == 200
+    assert r.status_code == (200 if _LEGACY_ON else 410)
+    data = _json.loads((STATIC_DATA_DIR / "editorial-graveyard.json").read_text())
+    assert data.get("tracks")
 
 
 def test_forgotten_hits():
     r = get("/api/forgotten-hits", timeout=30)
-    assert r.status_code == 200
+    assert r.status_code == (200 if _LEGACY_ON else 410)
+    data = _json.loads((STATIC_DATA_DIR / "forgotten-hits.json").read_text())
+    assert data.get("tracks")
 
 
 def test_main_character():
@@ -212,8 +224,11 @@ def test_name_generator():
 
 
 def test_time_capsule():
+    # Served as per-era static snapshots; heavy backend route gated off by default.
     r = get("/api/time-capsule", timeout=45)
-    assert r.status_code == 200
+    assert r.status_code == (200 if _LEGACY_ON else 410)
+    data = _json.loads((STATIC_DATA_DIR / "time-capsule-2010s.json").read_text())
+    assert data.get("top_tracks")
 
 
 def test_mood_contradiction():
