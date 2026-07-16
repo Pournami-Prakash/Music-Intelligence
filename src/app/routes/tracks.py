@@ -15,49 +15,43 @@ def search_tracks(q: str = "", limit: int = 10):
     if len(q.strip()) < 2:
         return {"results": []}
 
-    vocab = _load_computed("embeddings/track2vec_vocab.parquet")
-    if vocab is None:
-        safe = q.replace("'", "''")
-        try:
-            df = con.execute(f"""
-                SELECT DISTINCT t.track_name, t.artist_name, t.track_uri
-                FROM read_parquet('{R2_PATH}/processed/tracks.parquet') t
-                WHERE lower(t.track_name) LIKE lower('{safe}%')
-                ORDER BY t.track_name LIMIT {min(limit, 20)}
-            """).df()
-            return {"results": [
-                {"title": r["track_name"], "artist": r["artist_name"], "uri": r["track_uri"]}
-                for _, r in df.iterrows()
-            ]}
-        except Exception:
-            return {"results": []}
-
     q_lower = q.lower().strip()
     limit   = min(limit, 20)
     seen: set[tuple] = set()
     results = []
 
-    for mask_fn in [
-        lambda n: n.startswith(q_lower),
-        lambda n: q_lower in n and not n.startswith(q_lower),
-    ]:
-        for _, row in vocab[vocab["track_name"].str.lower().str.contains(q_lower, na=False, regex=False)].iterrows():
-            name_lower = row["track_name"].lower()
-            if not mask_fn(name_lower):
-                continue
-            key = (row["track_name"], row["artist_name"])
-            if key in seen:
-                continue
-            seen.add(key)
-            results.append({
-                "title":  row["track_name"],
-                "artist": row["artist_name"],
-                "uri":    row["track_uri"],
-            })
-            if len(results) >= limit:
-                break
-        if len(results) >= limit:
-            break
+    # Stream the vocab lookup (sorted by track_name_lc, small row groups) via
+    # DuckDB: the prefix predicate prunes row groups, and prefix matches are
+    # ranked ahead of substring matches. Avoids the 148 MB resident DataFrame.
+    vpath = local_parquet("embeddings/track2vec_vocab_lookup.parquet")
+    if vpath is not None:
+        safe_q = q_lower.replace("'", "''")
+        try:
+            # idx is popularity rank (0 = most popular), so ORDER BY pri, idx
+            # returns prefix matches first, most-popular version of each first —
+            # restoring the ranking the old popularity-ordered vocab gave.
+            df = con.execute(f"""
+                SELECT track_name, artist_name, track_uri,
+                       CASE WHEN track_name_lc LIKE '{safe_q}%' THEN 0 ELSE 1 END AS pri
+                FROM read_parquet('{vpath.as_posix()}')
+                WHERE track_name_lc LIKE '%{safe_q}%'
+                ORDER BY pri, idx
+                LIMIT {limit * 4}
+            """).df()
+            for _, row in df.iterrows():
+                key = (row["track_name"], row["artist_name"])
+                if key in seen:
+                    continue
+                seen.add(key)
+                results.append({
+                    "title":  row["track_name"],
+                    "artist": row["artist_name"],
+                    "uri":    row["track_uri"],
+                })
+                if len(results) >= limit:
+                    break
+        except Exception:
+            pass
 
     # Top up from the fuller tracks.parquet: the FAISS vocab only covers
     # embeddable tracks, so many titles are searchable but missing from it.
@@ -90,13 +84,16 @@ def song_passport(track: str):
     try:
         # Stream the (big) track_stats parquet from local disk via DuckDB rather
         # than loading the whole ~840 MB DataFrame into memory.
-        ts_path = local_parquet("computed/track_stats.parquet")
+        # track_stats_lookup is sorted by track_name_lc with small row groups, so
+        # this equality filter prunes to ~1 group instead of decoding the whole
+        # (list-column-heavy) file.
+        ts_path = local_parquet("computed/track_stats_lookup.parquet")
         rows = None
         if ts_path is not None:
             rows = con.execute(f"""
                 SELECT track_uri, track_name, artist_name, playlist_count, top_playlist_names
                 FROM read_parquet('{ts_path.as_posix()}')
-                WHERE lower(track_name) = lower('{safe}')
+                WHERE track_name_lc = lower('{safe}')
                 ORDER BY playlist_count DESC
             """).df()
         if rows is not None and not rows.empty:
@@ -136,14 +133,19 @@ def song_passport(track: str):
 
         lb_listen_count: Optional[int] = None
         lb_isrc: Optional[str] = None
-        lb_df = _load_computed("enrichment/listenbrainz_full.parquet")
-        if lb_df is not None:
-            lb_rows = lb_df[lb_df["spotify_track_uri"] == track_uri]
-            if not lb_rows.empty:
-                v = lb_rows.iloc[0]["listen_count"]
-                lb_listen_count = int(v) if pd.notna(v) and int(v) > 0 else None
-                isrc_v = lb_rows.iloc[0].get("isrc")
-                lb_isrc = str(isrc_v) if isrc_v and not pd.isna(isrc_v) else None
+        # listenbrainz_lookup is sorted by spotify_track_uri (small row groups),
+        # so this point lookup prunes to one group instead of a 195 MB DataFrame.
+        lb_path = local_parquet("enrichment/listenbrainz_lookup.parquet")
+        if lb_path is not None:
+            lb = con.execute(
+                f"SELECT listen_count, isrc FROM read_parquet('{lb_path.as_posix()}') "
+                f"WHERE spotify_track_uri = ? LIMIT 1", [track_uri],
+            ).fetchone()
+            if lb is not None:
+                v = lb[0]
+                lb_listen_count = int(v) if v is not None and int(v) > 0 else None
+                isrc_v = lb[1]
+                lb_isrc = str(isrc_v) if isrc_v is not None and str(isrc_v) != "nan" else None
 
         mb_genres: Optional[list] = None
         ag_df = _load_computed("enrichment/artist_genres.parquet")

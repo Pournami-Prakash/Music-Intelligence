@@ -289,7 +289,7 @@ def forensics(body: ForensicsBody):
                 ],
             }
 
-    ept_path = local_parquet("processed/editorial_playlist_tracks.parquet") if tracks else None
+    ept_path = local_parquet("processed/editorial_tracks_slim.parquet") if tracks else None
     if tracks and ept_path is not None:
         # Substring-match every submitted "Artist - Title" against the editorial
         # track list in a single DuckDB pass (the parquet is streamed from local

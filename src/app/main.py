@@ -3,16 +3,19 @@ Music Intelligence Atlas — FastAPI entry point.
 
 All business logic lives in src/app/routes/*.  This file handles:
   - App creation + CORS
-  - Startup warmup (pre-load FAISS + adjacency in background)
+  - Startup warmup (pre-load a couple of small artifacts in background)
+  - Post-request heap trim (return DuckDB decompression memory to the OS)
   - Router registration
 """
 
+import ctypes
+import ctypes.util
 import os
 import sys
 import threading
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -32,6 +35,29 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ── Heap trim ───────────────────────────────────────────────────────────────
+# Streaming big parquets through DuckDB churns the heap; glibc frees that memory
+# but doesn't always hand it back to the OS, so RSS creeps up under repeated
+# scans. After each request we ask glibc to trim, keeping the process small on a
+# 512 MB box. No-op on platforms without malloc_trim (e.g. macOS/musl).
+try:
+    _libc = ctypes.CDLL(ctypes.util.find_library("c") or "libc.so.6", use_errno=True)
+    _malloc_trim = _libc.malloc_trim
+except (OSError, AttributeError):
+    _malloc_trim = None
+
+
+@app.middleware("http")
+async def _trim_heap(request: Request, call_next):
+    response = await call_next(request)
+    if _malloc_trim is not None:
+        try:
+            _malloc_trim(0)
+        except Exception:
+            pass
+    return response
 
 
 @app.on_event("startup")

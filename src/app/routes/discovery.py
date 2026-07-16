@@ -295,7 +295,7 @@ def _time_capsule_response(era: str, df: pd.DataFrame,
 @router.get("/api/mood-contradiction")
 def mood_contradiction(mood: str = "sad", limit: int = 20):
     playlist_df = _load_computed("processed/editorial_playlists.parquet")  # small (~5 MB)
-    ept_path    = local_parquet("processed/editorial_playlist_tracks.parquet")
+    ept_path    = local_parquet("processed/editorial_tracks_slim.parquet")
     if playlist_df is None or ept_path is None:
         raise HTTPException(503, detail="not_ready")
 

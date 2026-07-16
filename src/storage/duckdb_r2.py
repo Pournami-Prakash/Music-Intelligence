@@ -36,7 +36,7 @@ def get_con() -> duckdb.DuckDBPyConnection:
     """
     con = duckdb.connect()
     con.execute("INSTALL httpfs; LOAD httpfs;")
-    mem_limit = os.getenv("DUCKDB_MEMORY_LIMIT", "160MB")
+    mem_limit = os.getenv("DUCKDB_MEMORY_LIMIT", "128MB")
     threads   = os.getenv("DUCKDB_THREADS", "2")
     con.execute(f"""
         SET s3_endpoint='{_ACCOUNT_ID}.r2.cloudflarestorage.com';

@@ -3,7 +3,13 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PORT=7860 \
-    SKIP_STARTUP_WARMUP=1
+    SKIP_STARTUP_WARMUP=1 \
+    # Curb glibc heap fragmentation: this backend repeatedly decompresses big
+    # parquets via DuckDB, and glibc's default per-CPU arenas hold on to freed
+    # memory. Fewer arenas + aggressive trim keep resident memory low on a small
+    # (512 MB) box. Pairs with the malloc_trim() call in main.py.
+    MALLOC_ARENA_MAX=2 \
+    MALLOC_TRIM_THRESHOLD_=65536
 
 WORKDIR /app
 

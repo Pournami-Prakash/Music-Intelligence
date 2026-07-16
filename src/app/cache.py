@@ -57,12 +57,16 @@ _STABLE_KEYS = {
     "processed/tracks.parquet",
     "processed/playlists.parquet",
     "processed/editorial_playlist_tracks.parquet",
+    "processed/editorial_tracks_slim.parquet",
     "processed/editorial_playlists.parquet",
     "processed/canonical_tracks.parquet",
     "embeddings/genre_umap.parquet",
     "embeddings/genre_umap_clusters.parquet",
     "computed/editorial_removed.parquet",
     "computed/track_stats.parquet",
+    "computed/track_stats_lookup.parquet",
+    "embeddings/track2vec_vocab_lookup.parquet",
+    "enrichment/listenbrainz_lookup.parquet",
     "computed/era_tracks.parquet",
 }
 _TTL_STABLE  = 86_400  # 24 h

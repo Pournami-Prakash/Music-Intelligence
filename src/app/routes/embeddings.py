@@ -6,17 +6,53 @@ The 393 MB FAISS index no longer lives in the API. Vectors are in Upstash
 vocab (uri/artist ↔ id lookups) in memory. Endpoints degrade to an empty result
 for artists whose tracks aren't in the vector index (obscure long tail).
 """
+from typing import Optional
+
 import numpy as np
 from fastapi import APIRouter, HTTPException
 
-from src.app.cache import _load_computed, _chart_for_track
+from src.app.cache import _load_computed, local_parquet, con, _chart_for_track
 from src.app.upstash import upstash_ready, upstash_fetch_vectors, upstash_query
 
 router = APIRouter()
 
+_VOCAB_KEY = "embeddings/track2vec_vocab_lookup.parquet"
 
-def _vocab():
-    return _load_computed("embeddings/track2vec_vocab.parquet")
+
+def _vpath() -> Optional[str]:
+    p = local_parquet(_VOCAB_KEY)
+    return p.as_posix() if p is not None else None
+
+
+def _vocab_by_uri(uri: str) -> Optional[dict]:
+    """{idx, track_name, artist_name} for a track URI, streamed via DuckDB."""
+    path = _vpath()
+    if path is None:
+        return None
+    r = con.execute(
+        f"SELECT idx, track_name, artist_name FROM read_parquet('{path}') WHERE track_uri = ? LIMIT 1",
+        [uri],
+    ).fetchone()
+    return {"idx": int(r[0]), "track_name": r[1], "artist_name": r[2]} if r else None
+
+
+def _vocab_by_artist(name: str, limit: int) -> tuple[Optional[str], list[int]]:
+    """(canonical_artist_name, [idx...]) for an artist — exact then substring."""
+    path = _vpath()
+    if path is None:
+        return None, []
+    rows = con.execute(
+        f"SELECT idx, artist_name FROM read_parquet('{path}') WHERE artist_name_lc = lower(?) LIMIT {int(limit)}",
+        [name],
+    ).fetchall()
+    if not rows:
+        rows = con.execute(
+            f"SELECT idx, artist_name FROM read_parquet('{path}') WHERE artist_name_lc LIKE '%' || lower(?) || '%' LIMIT {int(limit)}",
+            [name],
+        ).fetchall()
+    if not rows:
+        return None, []
+    return rows[0][1], [int(r[0]) for r in rows]
 
 
 def _normalize(v: np.ndarray) -> np.ndarray:
@@ -28,28 +64,26 @@ def _normalize(v: np.ndarray) -> np.ndarray:
 def transition_finder(from_uri: str, to_uri: str = "", to_artist: str = "", limit: int = 5):
     if not upstash_ready():
         raise HTTPException(503, detail="vector_index_not_ready")
-    vocab = _vocab()
-    if vocab is None:
-        raise HTTPException(503, detail="not_ready")
 
-    src_rows = vocab[vocab["track_uri"] == from_uri]
-    if src_rows.empty:
+    src = _vocab_by_uri(from_uri)
+    if src is None:
         raise HTTPException(404, detail="source_track_not_found")
-    src_id = str(int(src_rows.iloc[0]["idx"]))
+    src_id = str(src["idx"])
 
-    tgt_rows = None
+    tgt_title: Optional[str] = None
+    tgt_artist: Optional[str] = None
     if to_uri:
-        tgt_rows = vocab[vocab["track_uri"] == to_uri]
-        if tgt_rows.empty:
+        t = _vocab_by_uri(to_uri)
+        if t is None:
             raise HTTPException(404, detail="target_track_not_found")
-        tgt_ids = [str(int(tgt_rows.iloc[0]["idx"]))]
+        tgt_ids = [str(t["idx"])]
+        tgt_title, tgt_artist = t["track_name"], t["artist_name"]
     elif to_artist:
-        arows = vocab[vocab["artist_name"].str.lower() == to_artist.lower()]
-        if arows.empty:
-            arows = vocab[vocab["artist_name"].str.lower().str.contains(to_artist.lower(), na=False)]
-        if arows.empty:
+        canon, idxs = _vocab_by_artist(to_artist, 30)
+        if not idxs:
             raise HTTPException(404, detail="target_artist_not_found")
-        tgt_ids = [str(int(i)) for i in arows["idx"].tolist()[:30]]
+        tgt_ids = [str(i) for i in idxs]
+        tgt_artist = canon
     else:
         raise HTTPException(400, detail="provide to_uri or to_artist")
 
@@ -75,9 +109,8 @@ def transition_finder(from_uri: str, to_uri: str = "", to_artist: str = "", limi
         if len(bridges) >= limit:
             break
 
-    src = src_rows.iloc[0]
-    to_info = ({"uri": to_uri, "title": tgt_rows.iloc[0]["track_name"], "artist": tgt_rows.iloc[0]["artist_name"]}
-               if to_uri and tgt_rows is not None else {"uri": to_uri, "title": None, "artist": to_artist or None})
+    to_info = ({"uri": to_uri, "title": tgt_title, "artist": tgt_artist}
+               if to_uri else {"uri": to_uri, "title": None, "artist": to_artist or None})
     return {
         "from":    {"uri": from_uri, "title": src["track_name"], "artist": src["artist_name"]},
         "to":      to_info,
@@ -89,18 +122,12 @@ def transition_finder(from_uri: str, to_uri: str = "", to_artist: str = "", limi
 def doppelganger(artist: str, limit: int = 5):
     if not upstash_ready():
         raise HTTPException(503, detail="vector_index_not_ready")
-    vocab = _vocab()
-    if vocab is None:
-        raise HTTPException(503, detail="not_ready")
 
-    arows = vocab[vocab["artist_name"].str.lower() == artist.lower()]
-    if arows.empty:
-        arows = vocab[vocab["artist_name"].str.lower().str.contains(artist.lower(), na=False)]
-    if arows.empty:
+    artist_name, idxs = _vocab_by_artist(artist, 50)
+    if not idxs:
         raise HTTPException(404, detail="artist_not_found")
 
-    artist_name = arows.iloc[0]["artist_name"]
-    query_ids = [str(int(i)) for i in arows["idx"].tolist()[:50]]
+    query_ids = [str(i) for i in idxs]
     vecs = upstash_fetch_vectors(query_ids)
 
     # Artist's tracks aren't in the (popular-tracks) vector index → clean empty result.
