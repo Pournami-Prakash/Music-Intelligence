@@ -1,3 +1,4 @@
+import os
 import re
 from typing import Optional
 
@@ -7,6 +8,18 @@ from fastapi import APIRouter, HTTPException
 from src.app.cache import _load_computed, local_parquet, con, _chart_for_track, _chart_for_name
 
 router = APIRouter()
+
+# editorial-graveyard / forgotten-hits / time-capsule are precomputed to static
+# JSON and served by the frontend (frontend/public/data/*.json). Their backend
+# routes still load the full editorial tables into pandas, which would blow past
+# a 512 MB box — so they're gated off by default. Flip the env var to re-enable
+# for local/dev use (or after converting them to DuckDB streaming).
+_HEAVY_LEGACY = os.getenv("ENABLE_LEGACY_HEAVY_ENDPOINTS", "").lower() in {"1", "true", "yes"}
+
+
+def _guard_heavy_legacy():
+    if not _HEAVY_LEGACY:
+        raise HTTPException(410, detail="served_statically: use the frontend /data/*.json snapshot")
 
 _ERA_MAP = {
     "60s": (1960, 1969), "70s": (1970, 1979), "80s": (1980, 1989),
@@ -81,6 +94,7 @@ def _load_removed_tracks():
 
 @router.get("/api/editorial-graveyard")
 def editorial_graveyard(sort: str = "recent", limit: int = 50):
+    _guard_heavy_legacy()
     removed = _load_removed_tracks()
     if removed is None:
         raise HTTPException(503, detail="not_ready")
@@ -109,6 +123,7 @@ def editorial_graveyard(sort: str = "recent", limit: int = 50):
 
 @router.get("/api/forgotten-hits")
 def forgotten_hits(min_days: int = 180, limit: int = 50):
+    _guard_heavy_legacy()
     removed = _load_removed_tracks()
     if removed is None:
         raise HTTPException(503, detail="not_ready")
@@ -140,6 +155,7 @@ def forgotten_hits(min_days: int = 180, limit: int = 50):
 
 @router.get("/api/time-capsule")
 def time_capsule(era: str = "2010s", limit: int = 20):
+    _guard_heavy_legacy()
     tracks_df   = _load_computed("processed/editorial_playlist_tracks.parquet")
     playlist_df = _load_computed("processed/editorial_playlists.parquet")
     if tracks_df is None:
