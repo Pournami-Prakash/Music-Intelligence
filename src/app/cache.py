@@ -54,11 +54,21 @@ _DUCK_SEM = threading.BoundedSemaphore(int(os.getenv("DUCKDB_MAX_CONCURRENCY", "
 def duck_slot():
     """Acquire a concurrency slot and yield a fresh, cursor-isolated DuckDB
     handle. Use for register-blocks; hold the slot until results are
-    materialised. Do NOT nest (each graph/query helper takes its own slot)."""
+    materialised. Do NOT nest (each graph/query helper takes its own slot).
+
+    The cursor is CLOSED on exit: an unclosed con.cursor() retains its result
+    buffers and registered relations, so leaving them open leaks memory on every
+    request and eventually OOMs a small box.
+    """
     _DUCK_SEM.acquire()
+    cur = con.cursor()
     try:
-        yield con.cursor()
+        yield cur
     finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
         _DUCK_SEM.release()
 
 
