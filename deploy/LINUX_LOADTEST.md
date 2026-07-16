@@ -31,7 +31,7 @@ does.
 
 ```bash
 # cold-start: time from `docker run` to first 200
-time curl -sf http://localhost:7860/api/stats/overview -o /dev/null
+time curl -sf http://localhost:7860/health -o /dev/null
 
 # disk used by the downloaded lookup parquets (should be a few hundred MB)
 docker exec atlas du -sh /tmp | tail -1
