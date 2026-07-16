@@ -10,8 +10,22 @@ import os
 import numpy as np
 import requests
 
-_URL   = os.environ.get("UPSTASH_VECTOR_REST_URL", "").rstrip("/")
-_TOKEN = os.environ.get("UPSTASH_VECTOR_REST_TOKEN", "")
+
+def _clean_env(name: str) -> str:
+    """Read an env var, stripping whitespace and surrounding quotes.
+
+    Docker's `--env-file` (unlike python-dotenv) keeps quotes as part of the
+    value, so `UPSTASH_VECTOR_REST_URL="https://…"` would otherwise yield a URL
+    with literal quotes and break the request scheme.
+    """
+    v = os.environ.get(name, "").strip()
+    if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'":
+        v = v[1:-1].strip()
+    return v
+
+
+_URL   = _clean_env("UPSTASH_VECTOR_REST_URL").rstrip("/")
+_TOKEN = _clean_env("UPSTASH_VECTOR_REST_TOKEN")
 _session = requests.Session()
 
 
