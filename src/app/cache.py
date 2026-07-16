@@ -145,6 +145,32 @@ def _load_computed(key: str) -> Optional[pd.DataFrame]:
         return _cache.get(key)
 
 
+def local_parquet(key: str) -> Optional[Path]:
+    """Ensure an R2 parquet is on local disk (download once, honour TTL) and
+    return its path — WITHOUT loading it into pandas.
+
+    This is the low-memory counterpart to _load_computed(): big string-heavy
+    tables (artist_edges, editorial_playlist_tracks, track_stats) balloon to
+    multiple GB in a resident DataFrame, so instead callers point DuckDB at the
+    returned path (read_parquet) and let it stream + filter on disk. Only the
+    small filtered result is ever materialised.
+    """
+    ttl = _TTL_STABLE if key in _STABLE_KEYS else _TTL_DEFAULT
+    tmp = Path(tempfile.gettempdir()) / key.replace("/", "_")
+    if tmp.exists() and (time.time() - tmp.stat().st_mtime) < ttl:
+        return tmp
+
+    tmp_new = tmp.with_name(tmp.name + ".new")
+    try:
+        tmp_new.unlink(missing_ok=True)
+        r2.download(key, tmp_new)
+        tmp_new.replace(tmp)
+        return tmp
+    except Exception as e:
+        print(f"  [local_parquet] {key} failed: {e}", flush=True)
+        return tmp if tmp.exists() else None  # stale copy beats nothing
+
+
 def _load_manifest() -> Optional[dict]:
     """Load computed/data_manifest.json from R2, cached for 1 h."""
     global _manifest, _manifest_ts

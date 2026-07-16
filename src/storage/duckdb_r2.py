@@ -25,9 +25,19 @@ R2_PATH = f"s3://{_BUCKET}"
 
 
 def get_con() -> duckdb.DuckDBPyConnection:
-    """Return a DuckDB connection wired to R2 via httpfs."""
+    """Return a DuckDB connection wired to R2 via httpfs.
+
+    memory_limit/threads are capped low on purpose: this backend streams big
+    local parquets (artist_edges, editorial_playlist_tracks, track_stats) through
+    DuckDB, and by default DuckDB's buffer pool would retain hundreds of MB of
+    scanned data (sized to 80% of host RAM). Capping it keeps the whole process
+    comfortably inside a 512 MB serving box — it spills to a temp dir instead of
+    hoarding RAM. Overridable via DUCKDB_MEMORY_LIMIT / DUCKDB_THREADS.
+    """
     con = duckdb.connect()
     con.execute("INSTALL httpfs; LOAD httpfs;")
+    mem_limit = os.getenv("DUCKDB_MEMORY_LIMIT", "160MB")
+    threads   = os.getenv("DUCKDB_THREADS", "2")
     con.execute(f"""
         SET s3_endpoint='{_ACCOUNT_ID}.r2.cloudflarestorage.com';
         SET s3_access_key_id='{_ACCESS_KEY}';
@@ -35,5 +45,8 @@ def get_con() -> duckdb.DuckDBPyConnection:
         SET s3_region='auto';
         SET s3_use_ssl=true;
         SET s3_url_style='path';
+        SET memory_limit='{mem_limit}';
+        SET threads={threads};
+        SET temp_directory='{os.path.join(os.getenv("TMPDIR", "/tmp"), "duckdb_spill")}';
     """)
     return con

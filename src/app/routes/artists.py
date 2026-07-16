@@ -5,8 +5,9 @@ import pandas as pd
 from fastapi import APIRouter, HTTPException
 
 from src.app.cache import (
-    _load_computed, _get_artist_adj, _artist_name_map, sp, _image_cache,
+    _load_computed, sp, _image_cache,
 )
+from src.app.graph import resolve_artist, artist_neighbors
 from src.app.helpers import _to_list, _resolve_artist_row, _jaccard
 from src.app.models import ArtistsBatchBody
 
@@ -157,15 +158,15 @@ def artist_habitat(artist: str, artist_uri: Optional[str] = None):
 
 @router.get("/api/compass/{artist}")
 def compass(artist: str):
-    adj = _get_artist_adj()
-    if not adj:
-        raise HTTPException(503, detail="not_ready")
-
-    canonical = _artist_name_map.get(artist.lower())
-    if not canonical or canonical not in adj:
+    canonical = resolve_artist(artist)
+    if canonical is None:
         raise HTTPException(404, detail="artist_not_found")
 
-    top = sorted(adj[canonical].items(), key=lambda x: -x[1])[:12]
+    nbrs = artist_neighbors(canonical)
+    if not nbrs:
+        raise HTTPException(404, detail="artist_not_found")
+
+    top = sorted(nbrs.items(), key=lambda x: -x[1])[:12]
     max_shared = top[0][1] if top else 1
     neighbors = [
         {

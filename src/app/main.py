@@ -17,9 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.app.cache import (
-    _load_computed, _get_artist_adj,
-)
+from src.app.cache import _load_computed
 from src.app.routes import stats, artists, tracks, discovery, social, playlists, embeddings, soundtrack
 
 app = FastAPI(title="Music Intelligence Atlas API", version="0.2.0")
@@ -43,13 +41,13 @@ def _startup_warmup():
         return
 
     def _warm():
+        # Only the small, still-pandas artifacts are worth pre-loading. The big
+        # string-heavy tables (artist_edges, editorial_playlist_tracks,
+        # track_stats) are now streamed from local disk via DuckDB on demand, so
+        # warming them into pandas would defeat the point.
         threads = [
-            threading.Thread(target=_get_artist_adj, daemon=True),
-            threading.Thread(target=lambda: _load_computed("processed/editorial_playlist_tracks.parquet"), daemon=True),
             threading.Thread(target=lambda: _load_computed("processed/editorial_playlists.parquet"), daemon=True),
-            threading.Thread(target=lambda: _load_computed("computed/editorial_removed.parquet"), daemon=True),
-            threading.Thread(target=lambda: _load_computed("computed/track_stats.parquet"), daemon=True),
-            threading.Thread(target=lambda: _load_computed("computed/era_tracks.parquet"), daemon=True),
+            threading.Thread(target=lambda: _load_computed("computed/artist_stats.parquet"), daemon=True),
         ]
         for t in threads:
             t.start()

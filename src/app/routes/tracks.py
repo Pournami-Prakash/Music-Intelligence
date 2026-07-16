@@ -3,7 +3,7 @@ from typing import Optional
 import pandas as pd
 from fastapi import APIRouter, HTTPException
 
-from src.app.cache import _load_computed, con
+from src.app.cache import _load_computed, local_parquet, con
 from src.app.helpers import _to_list, _resolve_artist_row
 from src.storage.duckdb_r2 import R2_PATH
 
@@ -88,12 +88,18 @@ def search_tracks(q: str = "", limit: int = 10):
 def song_passport(track: str):
     safe = track.replace("'", "''")
     try:
-        ts_df = _load_computed("computed/track_stats.parquet")
-        if ts_df is not None:
-            mask  = ts_df["track_name"].str.lower() == track.lower()
-            rows  = ts_df[mask].sort_values("playlist_count", ascending=False)
-            if rows.empty:
-                raise HTTPException(404, detail="track_not_found")
+        # Stream the (big) track_stats parquet from local disk via DuckDB rather
+        # than loading the whole ~840 MB DataFrame into memory.
+        ts_path = local_parquet("computed/track_stats.parquet")
+        rows = None
+        if ts_path is not None:
+            rows = con.execute(f"""
+                SELECT track_uri, track_name, artist_name, playlist_count, top_playlist_names
+                FROM read_parquet('{ts_path.as_posix()}')
+                WHERE lower(track_name) = lower('{safe}')
+                ORDER BY playlist_count DESC
+            """).df()
+        if rows is not None and not rows.empty:
             row           = rows.iloc[0]
             pc            = int(row["playlist_count"])
             artist        = row["artist_name"]

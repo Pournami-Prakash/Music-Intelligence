@@ -1,26 +1,25 @@
-from collections import deque
 from typing import Optional
 
+import pandas as pd
 from fastapi import APIRouter, HTTPException
 
-from src.app.cache import _load_computed, _get_artist_adj, _artist_name_map
+from src.app.cache import _load_computed, local_parquet, con
 from src.app.helpers import _to_list, _extract_playlist_id
 from src.app.models import GroupBlendBody, ForensicsBody
+from src.app.graph import (
+    resolve_artist, artist_neighbors, edge_weight, neighbors_of_many,
+)
 
 router = APIRouter()
 
 
 @router.get("/api/six-degrees")
 def six_degrees(from_artist: str = "Drake", to_artist: str = "Radiohead", max_depth: int = 6):
-    adj = _get_artist_adj()
-    if not adj:
-        raise HTTPException(503, detail="not_ready")
-
-    canon_from = _artist_name_map.get(from_artist.lower(), from_artist)
-    canon_to   = _artist_name_map.get(to_artist.lower(), to_artist)
-    if canon_from not in adj:
+    canon_from = resolve_artist(from_artist)
+    if canon_from is None:
         raise HTTPException(404, detail=f"artist_not_found: {from_artist}")
-    if canon_to not in adj:
+    canon_to = resolve_artist(to_artist)
+    if canon_to is None:
         raise HTTPException(404, detail=f"artist_not_found: {to_artist}")
 
     if canon_from == canon_to:
@@ -30,17 +29,25 @@ def six_degrees(from_artist: str = "Drake", to_artist: str = "Radiohead", max_de
     FAN = 100
     fwd = {canon_from: [canon_from]}
     bwd = {canon_to:   [canon_to]}
+    expanded: set[str] = set()
 
     for _ in range((max_depth + 1) // 2 + 1):
         frontier = fwd if len(fwd) <= len(bwd) else bwd
-        other    = bwd if frontier is fwd else fwd
-        reverse  = frontier is bwd
+
+        # Expand a whole BFS level in one DuckDB pass over the edge list.
+        to_expand = {
+            node for node, path in frontier.items()
+            if node not in expanded and len(path) - 1 < max_depth // 2 + 1
+        }
+        if not to_expand:
+            break
+        nbrs = neighbors_of_many(to_expand, fan=FAN)
+        expanded |= to_expand
 
         next_frontier = {}
-        for node, path in frontier.items():
-            if len(path) - 1 >= max_depth // 2 + 1:
-                continue
-            for nb in sorted(adj.get(node, {}), key=lambda n: -adj[node][n])[:FAN]:
+        for node in to_expand:
+            path = frontier[node]
+            for nb, _w in nbrs.get(node, []):
                 if nb not in frontier and nb not in next_frontier:
                     next_frontier[nb] = path + [nb]
 
@@ -54,7 +61,7 @@ def six_degrees(from_artist: str = "Drake", to_artist: str = "Radiohead", max_de
             full     = path_fwd + path_bwd[1:]
             result   = []
             for i, name in enumerate(full):
-                shared = None if i == 0 else adj.get(full[i - 1], {}).get(name)
+                shared = None if i == 0 else edge_weight(full[i - 1], name)
                 result.append({"name": name, "shared": shared})
             return {"from": canon_from, "to": canon_to, "hops": len(full) - 1, "path": result}
 
@@ -67,9 +74,8 @@ def group_blend(body: GroupBlendBody):
     if not input_artists:
         raise HTTPException(400, detail="provide at least one artist in 'artists' list")
 
-    adj      = _get_artist_adj()
     stats_df = _load_computed("computed/artist_stats.parquet")
-    if not adj or stats_df is None:
+    if stats_df is None:
         raise HTTPException(503, detail="not_ready")
 
     resolved = []
@@ -84,8 +90,8 @@ def group_blend(body: GroupBlendBody):
         raise HTTPException(404, detail="none_of_the_artists_found")
 
     def neighbors(artist_name: str) -> dict[str, int]:
-        canonical = _artist_name_map.get(artist_name.lower(), artist_name)
-        return dict(adj.get(canonical, {}))
+        canonical = resolve_artist(artist_name) or artist_name
+        return artist_neighbors(canonical)
 
     neighbor_maps = [neighbors(a) for a in resolved]
 
@@ -156,9 +162,8 @@ def group_blend(body: GroupBlendBody):
 
 @router.get("/api/overlap-arena")
 def overlap_arena(a: str = "Drake", b: str = "Taylor Swift"):
-    adj      = _get_artist_adj()
     stats_df = _load_computed("computed/artist_stats.parquet")
-    if not adj or stats_df is None:
+    if stats_df is None:
         raise HTTPException(503, detail="not_ready")
 
     def get_stats(name: str):
@@ -174,7 +179,7 @@ def overlap_arena(a: str = "Drake", b: str = "Taylor Swift"):
         raise HTTPException(404, detail=f"artist_not_found: {b}")
 
     name_a, name_b = sa["artist_name"], sb["artist_name"]
-    shared         = adj.get(name_a, {}).get(name_b, 0)
+    shared         = edge_weight(name_a, name_b)
     a_total        = int(sa["playlist_count"])
     b_total        = int(sb["playlist_count"])
     overlap_pct    = round(shared / max(min(a_total, b_total), 1) * 100, 2)
@@ -205,9 +210,8 @@ def overlap_arena(a: str = "Drake", b: str = "Taylor Swift"):
 
 @router.get("/api/collision")
 def collision(a: str = "Taylor Swift", b: str = "Kendrick Lamar"):
-    adj      = _get_artist_adj()
     stats_df = _load_computed("computed/artist_stats.parquet")
-    if not adj or stats_df is None:
+    if stats_df is None:
         raise HTTPException(503, detail="not_ready")
 
     def get_stats(name: str):
@@ -223,10 +227,10 @@ def collision(a: str = "Taylor Swift", b: str = "Kendrick Lamar"):
         raise HTTPException(404, detail=f"artist_not_found: {b}")
 
     name_a, name_b = sa["artist_name"], sb["artist_name"]
-    shared         = adj.get(name_a, {}).get(name_b, 0)
+    shared         = edge_weight(name_a, name_b)
 
-    neighbors_a  = set(adj.get(name_a, {}).keys())
-    neighbors_b  = set(adj.get(name_b, {}).keys())
+    neighbors_a  = set(artist_neighbors(name_a).keys())
+    neighbors_b  = set(artist_neighbors(name_b).keys())
     bridge_names = (neighbors_a & neighbors_b) - {name_a, name_b}
 
     bridges = []
@@ -256,8 +260,7 @@ def forensics(body: ForensicsBody):
     url    = body.playlist_url
     tracks = body.tracks
 
-    ep_df  = _load_computed("processed/editorial_playlists.parquet")
-    ept_df = _load_computed("processed/editorial_playlist_tracks.parquet")
+    ep_df = _load_computed("processed/editorial_playlists.parquet")  # small (~5 MB)
     if ep_df is None:
         raise HTTPException(503, detail="not_ready")
 
@@ -286,20 +289,33 @@ def forensics(body: ForensicsBody):
                 ],
             }
 
-    if tracks and ept_df is not None:
-        editorial_hits = 0
-        for t in tracks:
+    ept_path = local_parquet("processed/editorial_playlist_tracks.parquet") if tracks else None
+    if tracks and ept_path is not None:
+        # Substring-match every submitted "Artist - Title" against the editorial
+        # track list in a single DuckDB pass (the parquet is streamed from local
+        # disk, never loaded whole into pandas).
+        q_rows = []
+        for i, t in enumerate(tracks):
             parts = t.split(" - ", 1)
             if len(parts) == 2:
                 artist_q, track_q = parts[0].strip().lower(), parts[1].strip().lower()
             else:
                 artist_q, track_q = "", t.strip().lower()
-            match = ept_df[
-                ept_df["track_name"].str.lower().str.contains(track_q, na=False, regex=False) &
-                (ept_df["artist_name"].str.lower().str.contains(artist_q, na=False, regex=False) if artist_q else True)
-            ]
-            if not match.empty:
-                editorial_hits += 1
+            q_rows.append({"id": i, "aq": artist_q, "tq": track_q})
+
+        rel = f"forensic_q_{id(q_rows)}"
+        con.register(rel, pd.DataFrame(q_rows))
+        try:
+            hit = con.execute(f"""
+                SELECT count(DISTINCT q.id) AS hits
+                FROM {rel} q
+                JOIN read_parquet('{ept_path.as_posix()}') e
+                  ON strpos(lower(e.track_name), q.tq) > 0
+                 AND (q.aq = '' OR strpos(lower(e.artist_name), q.aq) > 0)
+            """).fetchone()
+            editorial_hits = int(hit[0]) if hit and hit[0] is not None else 0
+        finally:
+            con.unregister(rel)
 
         editorial_pct = round(editorial_hits / len(tracks) * 100) if tracks else 0
         organic_pct   = 100 - editorial_pct
