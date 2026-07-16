@@ -36,7 +36,7 @@ def get_con() -> duckdb.DuckDBPyConnection:
     """
     con = duckdb.connect()
     con.execute("INSTALL httpfs; LOAD httpfs;")
-    mem_limit = os.getenv("DUCKDB_MEMORY_LIMIT", "128MB")
+    mem_limit = os.getenv("DUCKDB_MEMORY_LIMIT", "96MB")
     threads   = os.getenv("DUCKDB_THREADS", "2")
 
     # R2 credentials go through the secrets manager rather than `SET s3_*`: the

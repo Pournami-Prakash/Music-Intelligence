@@ -93,22 +93,31 @@ def neighbors_of_many(names: set[str], fan: Optional[int] = None) -> dict[str, l
     path = _path()
     if path is None or not names:
         return {}
+    # Keep only the top-`fan` neighbours per source IN SQL. Hub artists have
+    # thousands of edges; fetching them all for a 100-node frontier into Python
+    # before truncating was a big transient spike on a small box. The window
+    # function bounds the result set to fan × |frontier| rows.
+    rank_clause = f"WHERE rn <= {int(fan)}" if fan is not None else ""
     # Cursor-local registration + bounded slot → safe under concurrent requests.
     with duck_slot() as cur:
         cur.register("frontier", pd.DataFrame({"n": list(names)}))
         rows = cur.execute(f"""
-            SELECT artist_a_name AS src, artist_b_name AS nb, shared_playlists AS w
-              FROM read_parquet('{path}') WHERE artist_a_name IN (SELECT n FROM frontier)
-            UNION ALL
-            SELECT artist_b_name AS src, artist_a_name AS nb, shared_playlists AS w
-              FROM read_parquet('{path}') WHERE artist_b_name IN (SELECT n FROM frontier)
+            SELECT src, nb, w FROM (
+                SELECT src, nb, w,
+                       row_number() OVER (PARTITION BY src ORDER BY w DESC) AS rn
+                FROM (
+                    SELECT artist_a_name AS src, artist_b_name AS nb, shared_playlists AS w
+                      FROM read_parquet('{path}') WHERE artist_a_name IN (SELECT n FROM frontier)
+                    UNION ALL
+                    SELECT artist_b_name AS src, artist_a_name AS nb, shared_playlists AS w
+                      FROM read_parquet('{path}') WHERE artist_b_name IN (SELECT n FROM frontier)
+                )
+            ) {rank_clause}
         """).fetchall()
 
     out: dict[str, list[tuple[str, int]]] = {}
     for src, nb, w in rows:
         out.setdefault(src, []).append((nb, int(w)))
     for src in out:
-        out[src].sort(key=lambda x: -x[1])
-        if fan is not None:
-            out[src] = out[src][:fan]
+        out[src].sort(key=lambda x: -x[1])   # rows already ranked, but keep deterministic
     return out
