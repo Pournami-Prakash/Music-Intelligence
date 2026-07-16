@@ -16,6 +16,24 @@ fetch() {  # fetch <url-path> <outfile>
   curl -sf --max-time 90 "$API$1" -o "$OUT/$2"
 }
 
+# mood-contradiction is a heavy GROUP BY gated off in prod — the backend must run
+# with ENABLE_LEGACY_HEAVY_ENDPOINTS=1 and ample memory (e.g. DUCKDB_MEMORY_LIMIT=1GB)
+# for this to succeed. The 5 predefined moods are combined into one keyed file.
+echo "  mood-contradiction.json"
+python3 - "$API" "$OUT" <<'PY'
+import json, sys, urllib.request, urllib.error
+api, out = sys.argv[1], sys.argv[2]
+res = {}
+for m in ["sad", "angry", "heartbreak", "anxious", "lonely"]:
+    try:
+        with urllib.request.urlopen(f"{api}/api/mood-contradiction?mood={m}&limit=12", timeout=90) as r:
+            res[m] = json.load(r)
+    except urllib.error.HTTPError:
+        res[m] = {"mood": m, "contrary_moods": [], "mood_playlists": 0, "contrary_playlists": 0, "tracks": []}
+with open(f"{out}/mood-contradiction.json", "w") as f:
+    json.dump(res, f, ensure_ascii=False)
+PY
+
 fetch "/api/mood-map/clusters"          "mood-map.json"
 fetch "/api/genre-weather/regions"      "genre-weather.json"
 fetch "/api/playlist-language?limit=80" "playlist-language.json"

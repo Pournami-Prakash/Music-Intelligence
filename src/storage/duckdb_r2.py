@@ -37,7 +37,11 @@ def get_con() -> duckdb.DuckDBPyConnection:
     con = duckdb.connect()
     con.execute("INSTALL httpfs; LOAD httpfs;")
     mem_limit = os.getenv("DUCKDB_MEMORY_LIMIT", "96MB")
-    threads   = os.getenv("DUCKDB_THREADS", "2")
+    # threads=1 + no insertion-order preservation keep a query's working-memory
+    # small enough to run inside a ~64-96 MB budget on a 512 MB box (DuckDB's own
+    # OOM hint). Fewer threads also means fewer allocator arenas → less resident
+    # fragmentation. Slower, but the results are cached.
+    threads   = os.getenv("DUCKDB_THREADS", "1")
 
     # R2 credentials go through the secrets manager rather than `SET s3_*`: the
     # SET settings are connection-local and are NOT inherited by con.cursor(),
@@ -57,6 +61,7 @@ def get_con() -> duckdb.DuckDBPyConnection:
     con.execute(f"""
         SET memory_limit='{mem_limit}';
         SET threads={threads};
+        SET preserve_insertion_order=false;
         SET temp_directory='{os.path.join(os.getenv("TMPDIR", "/tmp"), "duckdb_spill")}';
     """)
     return con

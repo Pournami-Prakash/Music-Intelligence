@@ -312,6 +312,10 @@ def _time_capsule_response(era: str, df: pd.DataFrame,
 @router.get("/api/mood-contradiction")
 @ttl_cache()
 def mood_contradiction(mood: str = "sad", limit: int = 20):
+    # Precomputed to static JSON and served by the frontend: its GROUP BY over
+    # the editorial table needs ~100 MB of DuckDB working memory, which pushes a
+    # 512 MB box over the edge. Gated off by default like the other snapshots.
+    _guard_heavy_legacy()
     playlist_df = _load_computed("processed/editorial_playlists.parquet")  # small (~5 MB)
     ept_path    = local_parquet("processed/editorial_tracks_slim.parquet")
     if playlist_df is None or ept_path is None:

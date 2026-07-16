@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { AlertTriangle } from 'lucide-react'
 import LottiePlayer from '../components/LottiePlayer'
 import { PvPage, PvTop, PvHero, PvPanel } from '../components/Premium'
-import { errorMessage, getJson } from '../lib/api'
+import { errorMessage } from '../lib/api'
 
 const MOODS = [
   { key: 'sad', label: 'Sad', color: '#5AC8FA' },
@@ -29,7 +29,13 @@ export default function MoodContradiction() {
     setLoading(true)
     setData(null)
     try {
-      setData(await getJson(`/api/mood-contradiction?mood=${encodeURIComponent(key)}&limit=12`))
+      // Precomputed snapshot (frontend/public/data/mood-contradiction.json) —
+      // the live GROUP BY is too heavy for the 512 MB backend, so it's served
+      // statically like the other snapshot pages.
+      const res = await fetch('/data/mood-contradiction.json')
+      if (!res.ok) throw new Error('snapshot unavailable')
+      const all = await res.json()
+      setData(all[key] || { mood: key, contrary_moods: [], mood_playlists: 0, contrary_playlists: 0, tracks: [] })
     } catch (e) {
       setData({ _demo: true, _error: errorMessage(e), mood: key, contrary_moods: [], mood_playlists: 0, contrary_playlists: 0, tracks: [] })
     } finally {

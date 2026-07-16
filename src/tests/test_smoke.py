@@ -232,8 +232,11 @@ def test_time_capsule():
 
 
 def test_mood_contradiction():
+    # Served as a static snapshot (keyed by mood); heavy backend route gated off.
     r = get("/api/mood-contradiction", timeout=45)
-    assert r.status_code == 200
+    assert r.status_code == (200 if _LEGACY_ON else 410)
+    data = _json.loads((STATIC_DATA_DIR / "mood-contradiction.json").read_text())
+    assert data.get("sad", {}).get("tracks")
 
 
 def test_transition_finder_missing_required_param():
