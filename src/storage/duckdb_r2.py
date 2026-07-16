@@ -38,13 +38,23 @@ def get_con() -> duckdb.DuckDBPyConnection:
     con.execute("INSTALL httpfs; LOAD httpfs;")
     mem_limit = os.getenv("DUCKDB_MEMORY_LIMIT", "128MB")
     threads   = os.getenv("DUCKDB_THREADS", "2")
+
+    # R2 credentials go through the secrets manager rather than `SET s3_*`: the
+    # SET settings are connection-local and are NOT inherited by con.cursor(),
+    # so cursor-based queries (every request path) would fall back to AWS and
+    # fail. A secret is instance-global and inherited by all cursors.
     con.execute(f"""
-        SET s3_endpoint='{_ACCOUNT_ID}.r2.cloudflarestorage.com';
-        SET s3_access_key_id='{_ACCESS_KEY}';
-        SET s3_secret_access_key='{_SECRET_KEY}';
-        SET s3_region='auto';
-        SET s3_use_ssl=true;
-        SET s3_url_style='path';
+        CREATE SECRET r2 (
+            TYPE S3,
+            KEY_ID '{_ACCESS_KEY}',
+            SECRET '{_SECRET_KEY}',
+            ENDPOINT '{_ACCOUNT_ID}.r2.cloudflarestorage.com',
+            REGION 'auto',
+            URL_STYLE 'path',
+            USE_SSL true
+        );
+    """)
+    con.execute(f"""
         SET memory_limit='{mem_limit}';
         SET threads={threads};
         SET temp_directory='{os.path.join(os.getenv("TMPDIR", "/tmp"), "duckdb_spill")}';

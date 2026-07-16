@@ -9,31 +9,33 @@ concurrent/repeated traffic — while a TTL still lets R2 refreshes flow through
 """
 import threading
 import time
+from collections import OrderedDict
 from functools import wraps
 
 
 def ttl_cache(maxsize: int = 256, ttl: float = 1800.0):
     def decorator(fn):
-        store: dict = {}
-        order: list = []
-        lock = threading.Lock()          # guards store/order
-        key_locks: dict = {}             # per-key compute lock (single-flight)
+        store: "OrderedDict" = OrderedDict()   # key -> (value, ts); ordered by recency
+        lock = threading.Lock()                # guards store + key_locks
+        key_locks: dict = {}                   # per-key compute lock (single-flight)
 
-        def _get(key):
-            now = time.time()
+        def _get_locked(key):
+            """Return (hit?, value). Drops the entry if expired. Caller holds `lock`."""
             hit = store.get(key)
-            if hit is not None:
-                value, ts = hit
-                if now - ts < ttl:
-                    return True, value
-                store.pop(key, None)
-            return False, None
+            if hit is None:
+                return False, None
+            value, ts = hit
+            if time.time() - ts >= ttl:
+                del store[key]                 # evict expired instead of leaking it
+                return False, None
+            store.move_to_end(key)             # mark most-recently-used
+            return True, value
 
         @wraps(fn)
         def wrapper(*args, **kwargs):
             key = (args, tuple(sorted(kwargs.items())))
             with lock:
-                ok, value = _get(key)
+                ok, value = _get_locked(key)
                 if ok:
                     return value
                 klock = key_locks.setdefault(key, threading.Lock())
@@ -41,21 +43,25 @@ def ttl_cache(maxsize: int = 256, ttl: float = 1800.0):
             # Single-flight: only one thread computes a given key; others wait
             # here and then read the freshly-cached value instead of re-scanning.
             with klock:
-                with lock:
-                    ok, value = _get(key)
-                    if ok:
-                        return value
-                value = fn(*args, **kwargs)   # exceptions propagate, not cached
-                with lock:
-                    if key not in store:
-                        order.append(key)
-                    store[key] = (value, time.time())
-                    while len(order) > maxsize:
-                        store.pop(order.pop(0), None)
-                    key_locks.pop(key, None)
-                return value
+                try:
+                    with lock:
+                        ok, value = _get_locked(key)
+                        if ok:
+                            return value
+                    value = fn(*args, **kwargs)   # exceptions propagate, not cached
+                    with lock:
+                        store[key] = (value, time.time())
+                        store.move_to_end(key)
+                        while len(store) > maxsize:
+                            store.popitem(last=False)   # evict least-recently-used
+                    return value
+                finally:
+                    # Always drop the per-key lock — including when fn() raised —
+                    # so a failed computation doesn't leak lock objects.
+                    with lock:
+                        key_locks.pop(key, None)
 
-        wrapper.cache_clear = lambda: (store.clear(), order.clear(), key_locks.clear())
+        wrapper.cache_clear = lambda: (store.clear(), key_locks.clear())
         return wrapper
 
     return decorator

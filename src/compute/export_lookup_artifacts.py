@@ -27,9 +27,13 @@ _TMP = Path(tempfile.gettempdir())
 
 
 def _fetch(r2: R2Client, key: str) -> Path:
-    local = _TMP / key.replace("/", "_")
-    if not local.exists():
-        r2.download(key, local)
+    # Always pull a fresh copy from R2 (source of truth). Reusing a stale /tmp
+    # file would silently re-export outdated data after an R2 refresh. Download
+    # to a staging path and swap so a mid-download failure can't leave a partial.
+    local = _TMP / ("reexport_src_" + key.replace("/", "_"))
+    staging = local.with_suffix(local.suffix + ".new")
+    r2.download(key, staging)
+    staging.replace(local)
     return local
 
 
