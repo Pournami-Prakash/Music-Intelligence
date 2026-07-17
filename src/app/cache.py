@@ -29,6 +29,7 @@ from typing import Optional
 
 import pandas as pd
 from dotenv import load_dotenv
+from fastapi import HTTPException
 
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -48,6 +49,10 @@ con = get_con()
 # how many DuckDB queries run at once so total memory stays bounded on a small
 # box; excess requests wait their turn. Tune via DUCKDB_MAX_CONCURRENCY.
 _DUCK_SEM = threading.BoundedSemaphore(int(os.getenv("DUCKDB_MAX_CONCURRENCY", "2")))
+# How long a request will wait for a DuckDB slot before shedding load. Bounds the
+# queue so a burst returns 503 + Retry-After instead of piling up and OOM-ing a
+# small (512 MB) box. Set 0 to wait indefinitely (e.g. on a roomy host).
+_DUCK_ACQUIRE_TIMEOUT = float(os.getenv("DUCKDB_ACQUIRE_TIMEOUT", "20"))
 
 
 @contextmanager
@@ -56,11 +61,15 @@ def duck_slot():
     handle. Use for register-blocks; hold the slot until results are
     materialised. Do NOT nest (each graph/query helper takes its own slot).
 
-    The cursor is CLOSED on exit: an unclosed con.cursor() retains its result
-    buffers and registered relations, so leaving them open leaks memory on every
-    request and eventually OOMs a small box.
+    Sheds load with HTTP 503 + Retry-After if no slot frees within the timeout,
+    so a burst degrades gracefully instead of queueing until OOM. The cursor is
+    CLOSED on exit — an unclosed con.cursor() retains result buffers + registered
+    relations, leaking memory on every request.
     """
-    _DUCK_SEM.acquire()
+    timeout = _DUCK_ACQUIRE_TIMEOUT if _DUCK_ACQUIRE_TIMEOUT > 0 else None
+    if not _DUCK_SEM.acquire(timeout=timeout):
+        raise HTTPException(status_code=503, detail="server_busy",
+                            headers={"Retry-After": "5"})
     cur = con.cursor()
     try:
         yield cur
