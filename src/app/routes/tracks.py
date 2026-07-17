@@ -82,54 +82,38 @@ def search_tracks(q: str = "", limit: int = 10):
 def song_passport(track: str):
     safe = track.replace("'", "''")
     try:
-        # Stream the (big) track_stats parquet from local disk via DuckDB rather
-        # than loading the whole ~840 MB DataFrame into memory.
-        # track_stats_lookup is sorted by track_name_lc with small row groups, so
-        # this equality filter prunes to ~1 group instead of decoding the whole
-        # (list-column-heavy) file.
-        ts_path = local_parquet("computed/track_stats_lookup.parquet")
+        _COLS = "track_uri, track_name, artist_name, playlist_count, top_playlist_names"
+
+        # Fast path: the top-300K popular tracks live in a small (~19 MB) local
+        # parquet, sorted by track_name_lc with small row groups so this equality
+        # filter prunes to ~1 row group. Covers every demo-relevant track.
         rows = None
+        ts_path = local_parquet("computed/track_stats_top.parquet")
         if ts_path is not None:
             rows = duck_df(f"""
-                SELECT track_uri, track_name, artist_name, playlist_count, top_playlist_names
-                FROM read_parquet('{ts_path.as_posix()}')
-                WHERE track_name_lc = lower('{safe}')
-                ORDER BY playlist_count DESC
+                SELECT {_COLS} FROM read_parquet('{ts_path.as_posix()}')
+                WHERE track_name_lc = lower('{safe}') ORDER BY playlist_count DESC
             """)
-        if rows is not None and not rows.empty:
-            row           = rows.iloc[0]
-            pc            = int(row["playlist_count"])
-            artist        = row["artist_name"]
-            name          = row["track_name"]
-            track_uri     = row["track_uri"]
-            names_df      = pd.DataFrame({"name": _to_list(row.get("top_playlist_names"))})
-            other_artists = rows["artist_name"].iloc[1:].tolist() if len(rows) > 1 else []
-        else:
-            combined_df = duck_df(f"""
-                WITH matched AS (
-                    SELECT t.track_uri, t.track_name, t.artist_name, pt.pid
-                    FROM read_parquet('{R2_PATH}/processed/playlist_tracks.parquet') pt
-                    JOIN read_parquet('{R2_PATH}/processed/tracks.parquet') t ON pt.track_uri = t.track_uri
-                    WHERE lower(t.track_name) = lower('{safe}')
-                )
-                SELECT
-                    m.track_uri, m.track_name, m.artist_name,
-                    COUNT(DISTINCT m.pid)              AS playlist_count,
-                    list(p.name ORDER BY p.name)[1:10] AS top_names
-                FROM matched m
-                JOIN read_parquet('{R2_PATH}/processed/playlists.parquet') p ON m.pid = p.pid
-                WHERE p.name IS NOT NULL AND length(trim(p.name)) > 0
-                GROUP BY m.track_uri, m.track_name, m.artist_name
-                ORDER BY playlist_count DESC LIMIT 1
+
+        # Miss → query the FULL pre-aggregated table directly from R2 (never
+        # downloaded locally). It's sorted by track_name_lc with small row groups,
+        # so httpfs predicate pushdown fetches only the matching row group — a tiny
+        # read, not the 806 MB raw-table join.
+        if rows is None or rows.empty:
+            rows = duck_df(f"""
+                SELECT {_COLS} FROM read_parquet('{R2_PATH}/computed/track_stats_lookup.parquet')
+                WHERE track_name_lc = lower('{safe}') ORDER BY playlist_count DESC
             """)
-            if combined_df.empty:
-                raise HTTPException(404, detail="track_not_found")
-            pc            = int(combined_df.iloc[0]["playlist_count"])
-            artist        = combined_df.iloc[0]["artist_name"]
-            name          = combined_df.iloc[0]["track_name"]
-            track_uri     = combined_df.iloc[0]["track_uri"]
-            names_df      = pd.DataFrame({"name": combined_df.iloc[0]["top_names"] or []})
-            other_artists = combined_df["artist_name"].iloc[1:].tolist() if len(combined_df) > 1 else []
+
+        if rows is None or rows.empty:
+            raise HTTPException(404, detail="track_not_found")
+        row           = rows.iloc[0]
+        pc            = int(row["playlist_count"])
+        artist        = row["artist_name"]
+        name          = row["track_name"]
+        track_uri     = row["track_uri"]
+        names_df      = pd.DataFrame({"name": _to_list(row.get("top_playlist_names"))})
+        other_artists = rows["artist_name"].iloc[1:].tolist() if len(rows) > 1 else []
 
         lb_listen_count: Optional[int] = None
         lb_isrc: Optional[str] = None

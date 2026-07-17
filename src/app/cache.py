@@ -124,6 +124,7 @@ _STABLE_KEYS = {
     "computed/editorial_removed.parquet",
     "computed/track_stats.parquet",
     "computed/track_stats_lookup.parquet",
+    "computed/track_stats_top.parquet",
     "embeddings/track2vec_vocab_lookup.parquet",
     "enrichment/listenbrainz_lookup.parquet",
     "computed/era_tracks.parquet",

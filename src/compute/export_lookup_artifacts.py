@@ -49,12 +49,24 @@ def _write_and_upload(r2: R2Client, df: pd.DataFrame, out_name: str, dest_key: s
     r2.upload(out, dest_key)
 
 
+TRACK_STATS_TOP_N = 300_000  # local fast-path size for song-passport
+
+
 def export_track_stats(r2: R2Client) -> None:
-    """Point lookup by track name (song-passport)."""
+    """Point lookup by track name (song-passport).
+
+    Writes two artifacts: the FULL sorted table (kept on R2 only, for the
+    obscure-track fallback queried directly over httpfs) and a small top-N
+    fast-path table that the API downloads locally (keeps the 512 MB box lean).
+    """
     df = pd.read_parquet(_fetch(r2, "computed/track_stats.parquet"))
     df["track_name_lc"] = df["track_name"].astype("string").str.lower()
     df = df.sort_values("track_name_lc", kind="stable").reset_index(drop=True)
     _write_and_upload(r2, df, "track_stats_lookup.parquet", "computed/track_stats_lookup.parquet")
+
+    top = (df.nlargest(TRACK_STATS_TOP_N, "playlist_count")
+             .sort_values("track_name_lc", kind="stable").reset_index(drop=True))
+    _write_and_upload(r2, top, "track_stats_top.parquet", "computed/track_stats_top.parquet")
 
 
 def export_vocab(r2: R2Client) -> None:
