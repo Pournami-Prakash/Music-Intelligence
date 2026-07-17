@@ -117,19 +117,19 @@ def song_passport(track: str):
 
         lb_listen_count: Optional[int] = None
         lb_isrc: Optional[str] = None
-        # listenbrainz_lookup is sorted by spotify_track_uri (small row groups),
-        # so this point lookup prunes to one group instead of a 195 MB DataFrame.
-        lb_path = local_parquet("enrichment/listenbrainz_lookup.parquet")
-        if lb_path is not None:
-            lb = duck_one(
-                f"SELECT listen_count, isrc FROM read_parquet('{lb_path.as_posix()}') "
-                f"WHERE spotify_track_uri = ? LIMIT 1", [track_uri],
-            )
-            if lb is not None:
-                v = lb[0]
-                lb_listen_count = int(v) if v is not None and int(v) > 0 else None
-                isrc_v = lb[1]
-                lb_isrc = str(isrc_v) if isrc_v is not None and str(isrc_v) != "nan" else None
+        # Query listenbrainz_lookup DIRECTLY from R2 (not downloaded locally): it's
+        # sorted by spotify_track_uri with small row groups, so httpfs predicate
+        # pushdown fetches one row group — a tiny read, one per song-passport, and
+        # keeps the 35 MB file off the local box.
+        lb = duck_one(
+            f"SELECT listen_count, isrc FROM read_parquet('{R2_PATH}/enrichment/listenbrainz_lookup.parquet') "
+            f"WHERE spotify_track_uri = ? LIMIT 1", [track_uri],
+        )
+        if lb is not None:
+            v = lb[0]
+            lb_listen_count = int(v) if v is not None and int(v) > 0 else None
+            isrc_v = lb[1]
+            lb_isrc = str(isrc_v) if isrc_v is not None and str(isrc_v) != "nan" else None
 
         mb_genres: Optional[list] = None
         ag_df = _load_computed("enrichment/artist_genres.parquet")

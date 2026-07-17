@@ -3,8 +3,9 @@ from typing import Optional
 import pandas as pd
 from fastapi import APIRouter, HTTPException
 
-from src.app.cache import _load_computed, local_parquet, duck_slot
+from src.app.cache import _load_computed, duck_slot
 from src.app.rcache import ttl_cache
+from src.storage.duckdb_r2 import R2_PATH
 from src.app.helpers import _to_list, _extract_playlist_id
 from src.app.models import GroupBlendBody, ForensicsBody
 from src.app.graph import (
@@ -293,11 +294,11 @@ def forensics(body: ForensicsBody):
                 ],
             }
 
-    ept_path = local_parquet("processed/editorial_tracks_slim.parquet") if tracks else None
-    if tracks and ept_path is not None:
+    if tracks:
         # Substring-match every submitted "Artist - Title" against the editorial
-        # track list in a single DuckDB pass (the parquet is streamed from local
-        # disk, never loaded whole into pandas).
+        # track list in a single DuckDB pass, reading the slim table DIRECTLY from
+        # R2 (not downloaded locally). Forensics is a rare POST, so one httpfs scan
+        # per call is fine and keeps the 50 MB file off the box.
         q_rows = []
         for i, t in enumerate(tracks):
             parts = t.split(" - ", 1)
@@ -312,7 +313,7 @@ def forensics(body: ForensicsBody):
             hit = cur.execute(f"""
                 SELECT count(DISTINCT q.id) AS hits
                 FROM forensic_q q
-                JOIN read_parquet('{ept_path.as_posix()}') e
+                JOIN read_parquet('{R2_PATH}/processed/editorial_tracks_slim.parquet') e
                   ON strpos(lower(e.track_name), q.tq) > 0
                  AND (q.aq = '' OR strpos(lower(e.artist_name), q.aq) > 0)
             """).fetchone()
