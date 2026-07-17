@@ -10,6 +10,11 @@ it's real (anon) or reclaimable page cache (file).
       sh -c 'export LD_PRELOAD=$(ls /usr/lib/*/libjemalloc.so.2); python deploy/mem_probe.py'
 """
 import gc
+import os
+import sys
+
+# Run as a script from /app/deploy → ensure the repo root (/app) is importable.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 M = 1024 * 1024
 
