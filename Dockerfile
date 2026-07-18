@@ -4,6 +4,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PORT=7860 \
     SKIP_STARTUP_WARMUP=1 \
+    # Tuned for a 512 MB box: serialize DuckDB (one heavy query at a time — the
+    # 503 cap sheds the overflow) and cap its buffer so a single big R2 scan
+    # (e.g. the search top-up over tracks.parquet) can't spike past the limit.
+    # Raise both on a roomier host for more throughput.
+    DUCKDB_MAX_CONCURRENCY=1 \
+    DUCKDB_MEMORY_LIMIT=64MB \
     # This backend repeatedly decompresses big parquets via DuckDB across the
     # threadpool. glibc's allocator holds freed memory in per-thread arenas that
     # malloc_trim() can't reclaim, so RSS climbs under varied load until OOM on a
