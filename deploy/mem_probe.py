@@ -61,7 +61,7 @@ report("after imports")
 
 print("\n-- pandas artifacts (_load_computed → resident DataFrame) --")
 for key in [
-    "computed/artist_stats.parquet", "enrichment/artist_lastfm.parquet",
+    "computed/artist_stats.parquet",
     "enrichment/artist_genres.parquet", "enrichment/fma_enrichment.parquet",
     "processed/editorial_playlists.parquet", "computed/artist_images.parquet",
     "computed/artist_habitat.parquet", "computed/playlist_title_terms.parquet",
