@@ -81,18 +81,29 @@ python deploy/loadtest.py --base http://localhost:7860 --concurrency 10 --count 
 
 ## 5. Record + decide
 
-| metric | source | pass criteria |
-|---|---|---|
-| peak RSS | `rss.log` max | comfortably < 512 MB (leave headroom, e.g. ≤ ~430) |
-| OOM / restarts | `docker inspect atlas` `OOMKilled`; code `-1` count | 0 |
-| p95 latency (uncached) | loadtest output | acceptable for the UI (define per page) |
-| max latency (queue) | loadtest `max` | bounded, not unbounded growth |
-| cold start | §2 | acceptable for the host's health-check window |
-| disk | §2 | within the host's disk allowance |
+Prefer the one-shot runner — it reads the cgroup's own authoritative figures
+(monotonic `memory.peak`, `memory.events` oom count, anon/file split) and checks
+`.State.Running`, so the numbers don't depend on sampling luck:
 
 ```bash
-docker inspect atlas --format '{{.State.OOMKilled}}'   # must be false
+MEM=512m bash deploy/run_512_test.sh    # or MEM=1g to validate the real deploy size
 ```
+
+| metric | source | pass criteria |
+|---|---|---|
+| **cgroup memory.peak** | runner VERDICT (monotonic high-water) | comfortably under the limit — **≤ ~430 MiB on a 512 box** |
+| OOM | `.State.OOMKilled` + `memory.events` oom_kill | both **0 / false** |
+| anon vs file | `memory.stat` (runner VERDICT) | anon is the real pressure; file is reclaimable cache |
+| p95 latency (uncached) | loadtest output | acceptable for the UI |
+| max latency (queue) | loadtest `max` | bounded, not unbounded growth |
+| cold start / disk | §2 | within the host's health-check window / disk allowance |
+
+> **Recorded result (this app, 512 MiB):** FAILED — `memory.peak` ≈ 493 MiB,
+> `OOMKilled=true` at concurrency 2. Functional at concurrency 1 in testing but
+> **operationally unsafe on a hard 512 MiB limit** (≈19 MiB nominal headroom).
+> The pressure is the Python import floor (pandas/pyarrow/duckdb), not the data —
+> shrinking parquets does not move it. Deploy on **≥ 1 GiB** (autoscale capped at
+> 1 instance initially), or treat the 512 build as a private/light demo only.
 
 ## If it does NOT survive
 
