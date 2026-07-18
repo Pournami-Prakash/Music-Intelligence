@@ -11,7 +11,7 @@ from typing import Optional
 import numpy as np
 from fastapi import APIRouter, HTTPException
 
-from src.app.cache import _load_computed, local_parquet, duck_one, duck_all, _chart_for_track
+from src.app.cache import local_parquet, duck_one, duck_all, lastfm_lookup, _chart_for_track
 from src.app.upstash import upstash_ready, upstash_fetch_vectors, upstash_query
 from src.app.rcache import ttl_cache
 
@@ -159,19 +159,9 @@ def doppelganger(artist: str, limit: int = 5):
                          key=lambda x: -x[1])
         ranked += singles[:limit - len(ranked)]
 
-    lastfm_df = _load_computed("enrichment/artist_lastfm.parquet")
-
     def _tags(name: str) -> list[str]:
-        if lastfm_df is None:
-            return []
-        lrow = lastfm_df[lastfm_df["artist_name"].str.lower() == name.lower()]
-        if lrow.empty:
-            return []
-        raw = lrow.iloc[0].get("tags")
-        try:
-            return list(raw)[:5] if raw is not None else []
-        except TypeError:
-            return []
+        lf = lastfm_lookup(name)
+        return lf["tags"][:5] if lf else []
 
     return {
         "artist":        artist_name,

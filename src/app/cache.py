@@ -34,11 +34,13 @@ from fastapi import HTTPException
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.storage.r2 import R2Client
+# r2_download is a boto3-free signed-GET (see its module docstring): boto3 adds
+# ~40-80 MB resident just to import + build a client, which a 512 MB box can't
+# spare. Uploads/listing still use src.storage.r2 (boto3) in local compute jobs.
+from src.storage import r2_download as r2
 from src.storage.duckdb_r2 import get_con, R2_PATH
 from src.storage.spotify import SpotifyClient
 
-r2  = R2Client()
 sp  = SpotifyClient()
 con = get_con()
 
@@ -97,6 +99,31 @@ def duck_all(sql: str, params=None):
     """Run a query under a concurrency slot, return all rows."""
     with duck_slot() as cur:
         return (cur.execute(sql, params) if params is not None else cur.execute(sql)).fetchall()
+
+
+def lastfm_lookup(name: str) -> Optional[dict]:
+    """Last.fm fields for one artist via a bounded DuckDB point lookup.
+
+    Replaces a resident ~20 MB pandas DataFrame (list-heavy: tags,
+    similar_artists) — the 2.6 MB parquet is streamed from local disk and only
+    the one matching row is materialised (fetchone, never .df()).
+    """
+    p = local_parquet("enrichment/artist_lastfm.parquet")
+    if p is None:
+        return None
+    r = duck_one(
+        f"SELECT tags, similar_artists, listeners, playcount "
+        f"FROM read_parquet('{p.as_posix()}') WHERE lower(artist_name) = lower(?) LIMIT 1",
+        [name],
+    )
+    if r is None:
+        return None
+    return {
+        "tags":            list(r[0]) if r[0] is not None else [],
+        "similar_artists": list(r[1]) if r[1] is not None else [],
+        "listeners":       int(r[2]) if r[2] else None,
+        "playcount":       int(r[3]) if r[3] else None,
+    }
 
 # ── In-memory cache ────────────────────────────────────────────────────────────
 _cache:          dict[str, pd.DataFrame] = {}

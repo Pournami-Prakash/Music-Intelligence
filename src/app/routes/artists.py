@@ -6,7 +6,7 @@ import pandas as pd
 from fastapi import APIRouter, HTTPException
 
 from src.app.cache import (
-    _load_computed, sp, _image_cache,
+    _load_computed, lastfm_lookup, sp, _image_cache,
 )
 from src.app.graph import resolve_artist, artist_neighbors
 from src.app.rcache import ttl_cache
@@ -235,13 +235,8 @@ def main_character(query: str):
         for c in top_co[:5]
     ]
 
-    lastfm_df = _load_computed("enrichment/artist_lastfm.parquet")
-    listeners = None
-    if lastfm_df is not None:
-        lrow = lastfm_df[lastfm_df["artist_name"].str.lower() == r["artist_name"].lower()]
-        if not lrow.empty:
-            v = lrow.iloc[0].get("listeners") or 0
-            listeners = int(v) if v else None
+    _lf = lastfm_lookup(r["artist_name"])
+    listeners = _lf["listeners"] if _lf else None
 
     return {
         "artist":         r["artist_name"],
@@ -318,18 +313,9 @@ def ancestry(artist: str, limit: int = 5):
         key=lambda x: -x["similarity"],
     )[:limit]
 
-    lastfm_df = _load_computed("enrichment/artist_lastfm.parquet")
-    lastfm_similar: list[str] = []
-    lastfm_listeners: Optional[int] = None
-    if lastfm_df is not None:
-        lrow = lastfm_df[lastfm_df["artist_name"].str.lower() == artist_name.lower()]
-        if not lrow.empty:
-            raw_sim = lrow.iloc[0].get("similar_artists")
-            try:
-                lastfm_similar = list(raw_sim)[:8] if raw_sim is not None else []
-            except TypeError:
-                lastfm_similar = []
-            lastfm_listeners = int(lrow.iloc[0].get("listeners") or 0) or None
+    _lf = lastfm_lookup(artist_name)
+    lastfm_similar: list[str] = _lf["similar_artists"][:8] if _lf else []
+    lastfm_listeners: Optional[int] = _lf["listeners"] if _lf else None
 
     return {
         "artist":         artist_name,
