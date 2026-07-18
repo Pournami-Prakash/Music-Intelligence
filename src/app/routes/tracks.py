@@ -53,28 +53,11 @@ def search_tracks(q: str = "", limit: int = 10):
         except Exception:
             pass
 
-    # Top up from the fuller tracks.parquet: the FAISS vocab only covers
-    # embeddable tracks, so many titles are searchable but missing from it.
-    if len(results) < limit:
-        try:
-            safe = q_lower.replace("'", "''")
-            df = duck_df(f"""
-                SELECT DISTINCT track_name, artist_name, track_uri
-                FROM read_parquet('{R2_PATH}/processed/tracks.parquet')
-                WHERE lower(track_name) LIKE '{safe}%'
-                ORDER BY track_name LIMIT {limit}
-            """)
-            for _, r in df.iterrows():
-                key = (r["track_name"], r["artist_name"])
-                if key in seen:
-                    continue
-                seen.add(key)
-                results.append({"title": r["track_name"], "artist": r["artist_name"], "uri": r["track_uri"]})
-                if len(results) >= limit:
-                    break
-        except Exception:
-            pass
-
+    # NOTE: previously topped up from the full tracks.parquet (2.26M rows) for
+    # titles missing from the vocab. On a 512 MB box that was a 348 MB unindexed
+    # R2 scan per search — the single biggest memory spike (probe: +60 MB anon).
+    # Dropped: the vocab_lookup (599K tracks) covers demo search fine. Restore
+    # via a small sorted search-index artifact if long-tail search is needed.
     return {"results": results}
 
 

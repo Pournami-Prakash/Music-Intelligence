@@ -16,7 +16,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     # 512 MB box. jemalloc returns freed memory to the OS aggressively (decay
     # settings below) and fragments far less. LD_PRELOAD is set in CMD so it
     # resolves the arch-specific path (amd64 vs arm64).
-    MALLOC_CONF=background_thread:true,dirty_decay_ms:1000,muzzy_decay_ms:1000,narenas:2
+    MALLOC_CONF=background_thread:true,dirty_decay_ms:0,muzzy_decay_ms:0,narenas:2
 
 WORKDIR /app
 
