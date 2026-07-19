@@ -1058,7 +1058,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    margin-bottom: clamp(28px, 5vw, 56px);
+    margin-bottom: clamp(18px, 3vw, 32px);
   }
   .pv-brand { font-size: 13px; font-weight: 500; color: var(--text-mid); letter-spacing: -0.01em; }
   .pv-brand b { color: var(--text-hi); font-weight: 600; }
@@ -1984,25 +1984,25 @@
   /* ── Room hub (RoomPage): compact header + tools-as-menu, no decorative hero ── */
   .atlas-room-head {
     max-width: 720px;
-    margin-bottom: clamp(28px, 4vw, 44px);
-    padding-bottom: clamp(20px, 3vw, 30px);
+    margin-bottom: clamp(18px, 2.4vw, 28px);
+    padding-bottom: clamp(14px, 1.8vw, 20px);
     border-bottom: 1px solid var(--hairline);
   }
   .atlas-room-head h1 {
-    font-size: clamp(38px, 5.4vw, 66px);
+    font-size: clamp(30px, 3.6vw, 46px);
     font-weight: 800;
     letter-spacing: -0.035em;
-    line-height: 0.98;
+    line-height: 1.0;
     color: var(--text-hi);
   }
   .atlas-room-lede {
-    margin-top: 16px;
-    max-width: 60ch;
+    margin-top: 11px;
+    max-width: 62ch;
     color: var(--text-mid);
-    font-size: clamp(15px, 1.4vw, 17px);
-    line-height: 1.55;
+    font-size: clamp(14px, 1.1vw, 15.5px);
+    line-height: 1.5;
   }
-  .atlas-room-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+  .atlas-room-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
   .atlas-room-tags span {
     padding: 5px 12px;
     border-radius: 999px;
@@ -2016,8 +2016,8 @@
   .atlas-room-hub {
     display: grid;
     grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-    gap: clamp(16px, 2vw, 26px);
-    align-items: start;
+    gap: clamp(14px, 1.6vw, 22px);
+    align-items: stretch;
     max-width: 1180px;
   }
 
@@ -2027,8 +2027,7 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
-    min-height: 100%;
-    padding: clamp(24px, 2.6vw, 34px);
+    padding: clamp(20px, 2vw, 28px);
     border-radius: var(--radius);
     border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--hairline));
     background:
@@ -2057,25 +2056,25 @@
   .atlas-room-featured-icon {
     display: grid;
     place-items: center;
-    width: 46px;
-    height: 46px;
-    margin-top: 20px;
-    border-radius: 13px;
+    width: 40px;
+    height: 40px;
+    margin-top: 16px;
+    border-radius: 12px;
     background: color-mix(in srgb, var(--accent) 16%, transparent);
     border: 1px solid color-mix(in srgb, var(--accent) 34%, transparent);
     color: var(--accent);
   }
   .atlas-room-featured h2 {
-    margin-top: 18px;
-    font-size: clamp(26px, 2.6vw, 34px);
+    margin-top: 14px;
+    font-size: clamp(22px, 2vw, 28px);
     font-weight: 800;
     letter-spacing: -0.03em;
     color: var(--text-hi);
   }
   .atlas-room-featured p {
-    margin-top: 8px;
+    margin-top: 7px;
     color: var(--text-mid);
-    font-size: 15px;
+    font-size: 14.5px;
     line-height: 1.5;
   }
   .atlas-room-featured-cta {
@@ -2083,7 +2082,7 @@
     align-items: center;
     gap: 7px;
     margin-top: auto;
-    padding-top: 22px;
+    padding-top: 18px;
     color: var(--accent);
     font-size: 14px;
     font-weight: 600;
@@ -2099,10 +2098,10 @@
   }
   .atlas-room-row {
     display: grid;
-    grid-template-columns: 40px minmax(0, 1fr) auto;
+    grid-template-columns: 36px minmax(0, 1fr) auto;
     align-items: center;
-    gap: 16px;
-    padding: clamp(15px, 1.6vw, 20px) 6px;
+    gap: 14px;
+    padding: clamp(11px, 1.1vw, 14px) 6px;
     border-bottom: 1px solid var(--hairline);
     text-decoration: none;
     transition: background .25s, padding-left .25s;
@@ -2114,9 +2113,9 @@
   .atlas-room-row-icon {
     display: grid;
     place-items: center;
-    width: 40px;
-    height: 40px;
-    border-radius: 11px;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
     border: 1px solid var(--hairline);
     background: var(--surface);
     color: var(--text-mid);
