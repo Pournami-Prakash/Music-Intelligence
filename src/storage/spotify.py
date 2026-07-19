@@ -26,10 +26,16 @@ class SpotifyClient:
     _API_BASE  = "https://api.spotify.com/v1"
 
     def __init__(self):
-        self._client_id     = os.environ["SPOTIFY_CLIENT_ID"]
-        self._client_secret = os.environ["SPOTIFY_CLIENT_SECRET"]
+        # Optional: Spotify creds enable LIVE artist images. Without them the API
+        # still runs (artist-image falls back to the cached artist_images table),
+        # so read leniently instead of crashing the whole app at import time.
+        self._client_id     = os.getenv("SPOTIFY_CLIENT_ID", "")
+        self._client_secret = os.getenv("SPOTIFY_CLIENT_SECRET", "")
         self._token: Optional[str] = None
         self._token_expiry: float  = 0.0
+
+    def available(self) -> bool:
+        return bool(self._client_id and self._client_secret)
 
     # ------------------------------------------------------------------
     # Auth
@@ -101,6 +107,8 @@ class SpotifyClient:
         return data.get("tracks", {}).get("items", [])
 
     def search_artist(self, query: str, limit: int = 5) -> list[dict]:
+        if not self.available():
+            return []  # no creds → no live search; callers fall back to cached data
         data = self._get("search", {"q": query, "type": "artist", "limit": min(limit, 10)})
         return data.get("artists", {}).get("items", [])
 
