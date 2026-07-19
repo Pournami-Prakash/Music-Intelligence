@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import Sidebar from './components/Sidebar'
+import PageAtmosphere from './components/PageAtmosphere'
+import { getPageScene } from './data/pageScenes'
 import { warmBackend } from './lib/api'
 
 const Home = lazy(() => import('./pages/Home'))
@@ -33,11 +35,12 @@ const PlaylistNameGenerator = lazy(() => import('./pages/PlaylistNameGenerator')
 const RoomPage = lazy(() => import('./pages/RoomPage'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 
-export default function App() {
+function AtlasShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { pathname } = useLocation()
+  const scene = getPageScene(pathname)
   useEffect(() => { warmBackend() }, [])
   return (
-    <BrowserRouter>
       <div className="flex w-full min-h-screen bg-atlas-bg">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         {/* Mobile hamburger — hidden on lg+ where sidebar is always visible */}
@@ -52,9 +55,15 @@ export default function App() {
             <span className="w-4 h-px bg-atlas-heading block" />
           </span>
         </button>
-        <main className="flex-1 lg:ml-56 min-h-screen overflow-x-hidden">
-          <Suspense fallback={<div className="min-h-screen grid place-items-center text-atlas-muted" role="status">Opening atlas room…</div>}>
-          <Routes>
+        <main
+          className="atlas-main flex-1 lg:ml-56 min-h-screen overflow-x-hidden"
+          data-atlas-scene={scene[0]}
+          style={{ '--route-accent': scene[3] }}
+        >
+          <PageAtmosphere scene={scene} />
+          <div className="atlas-route-content">
+            <Suspense fallback={<div className="min-h-screen grid place-items-center text-atlas-muted" role="status">Opening atlas room…</div>}>
+            <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/artist-observatory" element={<RoomPage roomId="artist-observatory" />} />
             <Route path="/song-world" element={<RoomPage roomId="song-world" />} />
@@ -89,10 +98,18 @@ export default function App() {
             <Route path="/overlap-arena" element={<OverlapArena />} />
             <Route path="/name-generator" element={<PlaylistNameGenerator />} />
             <Route path="*" element={<NotFound />} />
-          </Routes>
-          </Suspense>
+            </Routes>
+            </Suspense>
+          </div>
         </main>
       </div>
+  )
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AtlasShell />
     </BrowserRouter>
   )
 }
