@@ -1,27 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import DemoBadge from '../components/DemoBadge'
 import LottiePlayer from '../components/LottiePlayer'
 import { CountUp, EqualizerBars, OrbitSystem, SpinningRecord } from '../components/Observatory'
+import { ErrorSignal } from '../components/SignalState'
 import { errorMessage, getJson } from '../lib/api'
 
 const ACCENT = '#3DDC97'
-
-const MOCK = {
-  artist: 'Drake',
-  playlist_count: 142312,
-  pct: 14.23,
-  rank: 1,
-  top_track: 'God’s Plan',
-  track_playlists: 421043,
-  co_artists: [
-    { name: 'Kendrick Lamar', overlap_pct: 72.3 },
-    { name: 'J. Cole', overlap_pct: 68.1 },
-    { name: 'Future', overlap_pct: 64.7 },
-    { name: 'Travis Scott', overlap_pct: 61.2 },
-    { name: 'Lil Baby', overlap_pct: 58.9 },
-  ],
-}
 
 const SUGGESTIONS = ['Drake', 'Taylor Swift', 'The Weeknd', 'Kendrick Lamar', 'Billie Eilish']
 
@@ -29,6 +13,7 @@ export default function ArtistUbiquity() {
   const [query, setQuery] = useState('')
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const location = useLocation()
 
   useEffect(() => {
@@ -40,20 +25,18 @@ export default function ArtistUbiquity() {
     if (!q?.trim()) return
     setLoading(true)
     setResult(null)
+    setError(null)
     try {
       const data = await getJson(`/api/artist-ubiquity/${encodeURIComponent(q)}`)
-      setResult({
-        ...MOCK,
-        artist: data.artist,
-        playlist_count: data.playlist_count,
-        pct: parseFloat(data.pct.toFixed(2)),
-        rank: data.rank ?? MOCK.rank,
-        top_track: data.top_tracks?.[0]?.track_name ?? MOCK.top_track,
-        track_playlists: data.top_tracks?.[0]?.count ?? MOCK.track_playlists,
-        co_artists: data.co_artists?.length ? data.co_artists : MOCK.co_artists,
+      const firstTrack = data.top_tracks?.[0]
+      setResult({ ...data,
+        pct: Number(data.pct || 0),
+        top_track: typeof firstTrack === 'string' ? firstTrack : firstTrack?.track_name,
+        track_playlists: typeof firstTrack === 'object' ? firstTrack?.count : null,
+        co_artists: data.co_artists || [],
       })
     } catch (e) {
-      setResult({ ...MOCK, artist: q, _demo: true, _error: errorMessage(e) })
+      setError(errorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -91,19 +74,29 @@ export default function ArtistUbiquity() {
           <div className="pv-panel grid place-items-center" style={{ minHeight: 300 }}>
             <div className="text-center">
               <LottiePlayer src="/assets/vinyl-loading.json" className="w-40 h-40 mx-auto" />
-              <p className="mt-2 text-[var(--text-mid)]">Reading playlist footprint…</p>
+              <p className="mt-2 text-[var(--text-mid)]" role="status">Reading the full artist index. A cold demo can take up to a minute…</p>
             </div>
           </div>
         )}
 
-        {result && !loading && (
+        {error && !loading && (
+          <ErrorSignal detail={error} onRetry={() => search(query)}>
+            We couldn’t open this artist’s playlist footprint.
+          </ErrorSignal>
+        )}
+
+        {result && !loading && !error && (
           <div key={result.artist} className="space-y-4">
-            {result._demo && <DemoBadge detail={result._error} />}
+            {result.detail_level === 'rank_only' && (
+              <p className="atlas-coverage-note" role="status">
+                Full-dataset rank and reach. Track and co-artist detail is currently available for the 10,000 most-playlisted artists.
+              </p>
+            )}
             <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_400px] gap-4">
               <section className="pv-panel atlas-rise" style={{ '--i': 0 }}>
                 <p className="pv-panel-label">Saturation record</p>
                 <div className="grid grid-cols-1 lg:grid-cols-[210px_minmax(0,1fr)] gap-8 items-center">
-                  <SpinningRecord label={result.artist} sub={result.top_track} accent={ACCENT} />
+                  <SpinningRecord label={result.artist} sub={result.top_track || 'Full dataset rank'} accent={ACCENT} />
                   <div>
                     <p className="text-[76px] sm:text-[92px] leading-none font-extrabold tracking-[-0.04em]" style={{ color: ACCENT }}>
                       <CountUp value={result.pct} decimals={2} /><span className="text-3xl align-top">%</span>
@@ -115,8 +108,8 @@ export default function ArtistUbiquity() {
                     <div className="grid grid-cols-2 gap-3 mt-6">
                       <div className="pv-cell">
                         <small>Most visible track</small>
-                        <strong>{result.top_track}</strong>
-                        <span className="text-xs" style={{ color: ACCENT }}><CountUp value={result.track_playlists} /> playlists</span>
+                        <strong>{result.top_track || 'Detail not cached'}</strong>
+                        <span className="text-xs" style={{ color: ACCENT }}>{result.track_playlists != null ? <><CountUp value={result.track_playlists} /> playlists</> : 'Top-10K detail layer'}</span>
                       </div>
                       <div className="pv-cell">
                         <small>Reach class</small>
@@ -131,15 +124,19 @@ export default function ArtistUbiquity() {
 
               <section className="pv-panel atlas-rise" style={{ '--i': 1 }}>
                 <p className="pv-panel-label">Orbiting artists</p>
-                <OrbitSystem center={result.artist} neighbors={result.co_artists.slice(0, 5)} accent={ACCENT} />
-                <p className="text-center text-[11px] mt-2 mb-4 text-[var(--text-low)]">
-                  hover to pause · click an orbit to open compass
-                </p>
+                {result.co_artists.length > 0 ? (
+                  <>
+                    <OrbitSystem center={result.artist} neighbors={result.co_artists.slice(0, 5)} accent={ACCENT} />
+                    <p className="text-center text-[11px] mt-2 mb-4 text-[var(--text-low)]">hover to pause · click an orbit to open compass</p>
+                  </>
+                ) : (
+                  <p className="text-[var(--text-mid)] text-sm py-12 text-center">Orbit detail is not cached for this long-tail artist. Their rank and reach above still use the full dataset.</p>
+                )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <Link to="/artist-habitat" state={{ artist: result.artist }} className="pv-link">Open habitat</Link>
                   <Link
                     to="/overlap-arena"
-                    state={{ a: result.artist, b: result.co_artists[0]?.name || 'Kendrick Lamar' }}
+                    state={{ a: result.artist, b: result.co_artists[0]?.name || '' }}
                     className="pv-link"
                   >
                     Compare overlap
@@ -150,7 +147,7 @@ export default function ArtistUbiquity() {
           </div>
         )}
 
-        {!result && !loading && (
+        {!result && !loading && !error && (
           <div className="pv-panel grid place-items-center" style={{ minHeight: 320 }}>
             <div className="text-center">
               <LottiePlayer src="/assets/radar.json" className="w-44 h-44 mx-auto" />

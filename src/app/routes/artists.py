@@ -10,6 +10,7 @@ from src.app.cache import (
 )
 from src.app.graph import resolve_artist, artist_neighbors
 from src.app.rcache import ttl_cache
+from src.app.telemetry import record_event
 from src.app.helpers import _to_list, _resolve_artist_row, _jaccard
 from src.app.models import ArtistsBatchBody
 
@@ -31,7 +32,8 @@ HABITAT_KEYWORDS = {
 def artist_image(artist: str):
     key = artist.lower()
     if key in _image_cache:
-        return {"artist": artist, "image_url": _image_cache[key]}
+        return {"artist": artist, "image_url": _image_cache[key],
+                "source": "memory_cache" if _image_cache[key] else "placeholder"}
 
     img_df = _load_computed("computed/artist_images.parquet")
     if img_df is not None:
@@ -39,7 +41,8 @@ def artist_image(artist: str):
         if not row.empty:
             url = row.iloc[0]["image_url"] if pd.notna(row.iloc[0]["image_url"]) else None
             _image_cache[key] = url
-            return {"artist": row.iloc[0]["artist_name"], "image_url": url}
+            return {"artist": row.iloc[0]["artist_name"], "image_url": url,
+                    "source": "cached_artifact" if url else "placeholder"}
 
     try:
         hits = sp.search_artist(artist, limit=1)
@@ -51,7 +54,8 @@ def artist_image(artist: str):
     except Exception:
         pass
 
-    return {"artist": artist, "image_url": None}
+    initials = "".join(part[0] for part in artist.split()[:2] if part).upper()
+    return {"artist": artist, "image_url": None, "source": "placeholder", "initials": initials}
 
 
 @router.post("/api/artist-images/batch")
@@ -74,18 +78,18 @@ def artist_images_batch(body: ArtistsBatchBody):
                 continue
         results[name] = None
 
-    return {"images": results}
+    return {"images": results, "meta": {"source": "cached_artifact", "live_lookup": False}}
 
 
 @router.get("/api/artist-ubiquity/{artist}")
 def artist_ubiquity(artist: str, artist_uri: Optional[str] = None):
-    from src.app.cache import duck_df
-    from src.storage.duckdb_r2 import R2_PATH
+    from src.app.cache import duck_df, local_parquet
 
     df = _load_computed("computed/artist_stats.parquet")
     if df is not None:
         r = _resolve_artist_row(df, artist, artist_uri)
         if r is not None:
+            record_event("artist_ubiquity", "rich_lookup")
             return {
                 "artist":         r["artist_name"],
                 "artist_uri":     r.get("artist_uri"),
@@ -97,36 +101,43 @@ def artist_ubiquity(artist: str, artist_uri: Optional[str] = None):
                     {"name": c["co_artist_name"], "overlap_pct": c["overlap_pct"]}
                     for c in _to_list(r.get("top_co_artists"))
                 ],
+                "detail_level": "full",
             }
 
-    # Not in the top-10K stats table. Computing ubiquity for the long tail means
-    # a join over the 806 MB playlist_tracks table, which OOMs a small serving
-    # box — so it's gated behind the heavy-endpoints flag; otherwise degrade to a
-    # clean 404 (consistent with the top-10K coverage of the other features).
-    if os.getenv("ENABLE_LEGACY_HEAVY_ENDPOINTS", "").lower() not in {"1", "true", "yes"}:
-        raise HTTPException(404, detail="artist_not_ranked")
-
+    # Long-tail rank/counts are precomputed offline into a slim lookup. This
+    # restores all-artist coverage without the 806 MB serving-time join.
     try:
-        result = duck_df(f"""
-            SELECT t.artist_name,
-                   COUNT(DISTINCT pt.pid) AS playlist_count
-            FROM read_parquet('{R2_PATH}/processed/playlist_tracks.parquet') pt
-            JOIN read_parquet('{R2_PATH}/processed/tracks.parquet') t
-                 ON pt.track_uri = t.track_uri
-            WHERE lower(t.artist_name) = lower('{artist.replace("'", "''")}')
-            GROUP BY t.artist_name
-            LIMIT 1
-        """)
+        lookup = local_parquet("computed/artist_ubiquity_lookup.parquet")
+        if lookup is None:
+            raise HTTPException(503, detail="artist_lookup_not_ready")
+        result = duck_df(
+            f"SELECT artist_name, artist_uri, playlist_count, playlist_pct, rank "
+            f"FROM read_parquet('{lookup.as_posix()}') "
+            f"WHERE artist_name_lc = lower(?) "
+            f"OR (? IS NOT NULL AND artist_uri = ?) ORDER BY rank LIMIT 1",
+            [artist, artist_uri, artist_uri],
+        )
+        if result.empty:
+            result = duck_df(
+                f"SELECT artist_name, artist_uri, playlist_count, playlist_pct, rank "
+                f"FROM read_parquet('{lookup.as_posix()}') "
+                f"WHERE artist_name_lc LIKE '%' || lower(?) || '%' ORDER BY rank LIMIT 1",
+                [artist],
+            )
         if result.empty:
             raise HTTPException(404, detail="artist_not_found")
-        pc = int(result.iloc[0]["playlist_count"])
+        row = result.iloc[0]
+        record_event("artist_ubiquity", "full_rank_lookup")
         return {
-            "artist":         result.iloc[0]["artist_name"],
-            "playlist_count": pc,
-            "pct":            round(pc / 1_000_000 * 100, 3),
-            "rank":           None,
+            "artist":         row["artist_name"],
+            "artist_uri":     row["artist_uri"],
+            "playlist_count": int(row["playlist_count"]),
+            "pct":            float(row["playlist_pct"]),
+            "rank":           int(row["rank"]),
             "top_tracks":     [],
             "co_artists":     [],
+            "detail_level":   "rank_only",
+            "note":           "Rank and reach use the full artist table; track and co-artist details cover the top 10,000.",
         }
     except HTTPException:
         raise

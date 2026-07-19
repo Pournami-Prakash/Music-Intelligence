@@ -10,20 +10,26 @@ All business logic lives in src/app/routes/*.  This file handles:
 
 import ctypes
 import ctypes.util
+import asyncio
 import os
 import sys
 import threading
+import time
 from pathlib import Path
 
 from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.app.cache import _load_computed
+from src.app.cache import _load_computed, local_parquet
+from src.app.telemetry import record_request
 from src.app.routes import stats, artists, tracks, discovery, social, playlists, embeddings, soundtrack
 
 app = FastAPI(title="Music Intelligence Atlas API", version="0.2.0")
+_REQUEST_SEM = asyncio.Semaphore(int(os.getenv("MAX_INFLIGHT_REQUESTS", "4")))
+_REQUEST_WAIT_SECONDS = float(os.getenv("REQUEST_ACQUIRE_TIMEOUT", "2"))
 
 # This is a public, read-only, cookie-less API, so allow any origin by default —
 # that avoids CORS breakage when the frontend URL changes (Vercel previews, custom
@@ -54,32 +60,57 @@ except (OSError, AttributeError):
 
 @app.middleware("http")
 async def _trim_heap(request: Request, call_next):
-    response = await call_next(request)
-    if _malloc_trim is not None:
+    started = time.perf_counter()
+    acquired = False
+    response = None
+    try:
+        if request.url.path in {"/health", "/ready"}:
+            response = await call_next(request)
+            return response
         try:
-            _malloc_trim(0)
-        except Exception:
-            pass
-    return response
+            await asyncio.wait_for(_REQUEST_SEM.acquire(), timeout=_REQUEST_WAIT_SECONDS)
+            acquired = True
+        except TimeoutError:
+            response = JSONResponse(
+                status_code=503,
+                content={"detail": "server_busy", "retry_after_seconds": 5},
+                headers={"Retry-After": "5"},
+            )
+            return response
+        response = await call_next(request)
+        return response
+    finally:
+        if acquired:
+            _REQUEST_SEM.release()
+        route = request.scope.get("route")
+        template = getattr(route, "path", request.url.path)
+        status = response.status_code if response is not None else 500
+        record_request(template, status, (time.perf_counter() - started) * 1000)
+        if _malloc_trim is not None:
+            try:
+                _malloc_trim(0)
+            except Exception:
+                pass
 
 
 @app.on_event("startup")
 def _startup_warmup():
     """Pre-load heavy artifacts in background so first requests are fast."""
     if os.environ.get("SKIP_STARTUP_WARMUP", "").lower() in {"1", "true", "yes"}:
+        stats.set_warm_state("deferred")
         return
 
     def _warm():
-        # Only the small, still-pandas artifacts are worth pre-loading. The big
-        # string-heavy tables (artist_edges, editorial_playlist_tracks,
-        # track_stats) are now streamed from local disk via DuckDB on demand, so
-        # warming them into pandas would defeat the point.
-        threads = [
-            threading.Thread(target=lambda: _load_computed("processed/editorial_playlists.parquet"), daemon=True),
-            threading.Thread(target=lambda: _load_computed("computed/artist_stats.parquet"), daemon=True),
-        ]
-        for t in threads:
-            t.start()
+        stats.set_warm_state("warming")
+        try:
+            # Sequential downloads avoid a cold-start memory/network burst.
+            _load_computed("computed/artist_stats.parquet")
+            local_parquet("computed/artist_ubiquity_lookup.parquet")
+            local_parquet("embeddings/track2vec_vocab_lookup.parquet")
+            stats.set_warm_state("ready")
+        except Exception as exc:
+            print(f"  [warmup] failed: {exc}", flush=True)
+            stats.set_warm_state("degraded")
     threading.Thread(target=_warm, daemon=True).start()
 
 

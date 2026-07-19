@@ -1,10 +1,9 @@
 """
 Doppelganger + Transition Finder — track2vec similarity over Upstash Vector.
 
-The 393 MB FAISS index no longer lives in the API. Vectors are in Upstash
-(top ~10K most-popular tracks on the free tier); the API keeps only the 21 MB
-vocab (uri/artist ↔ id lookups) in memory. Endpoints degrade to an empty result
-for artists whose tracks aren't in the vector index (obscure long tail).
+The 393 MB FAISS index no longer lives in the API. Upstash holds the popular
+candidate index; missing query vectors are point-read from an idx-sorted R2
+Parquet artifact. This preserves long-tail query coverage without resident RAM.
 """
 from typing import Optional
 
@@ -14,6 +13,8 @@ from fastapi import APIRouter, HTTPException
 from src.app.cache import local_parquet, duck_one, duck_all, lastfm_lookup, _chart_for_track
 from src.app.upstash import upstash_ready, upstash_fetch_vectors, upstash_query
 from src.app.rcache import ttl_cache
+from src.app.telemetry import record_event
+from src.storage.duckdb_r2 import R2_PATH
 
 router = APIRouter()
 
@@ -61,6 +62,31 @@ def _normalize(v: np.ndarray) -> np.ndarray:
     return (v / n).astype("float32") if n > 0 else v.astype("float32")
 
 
+def _vectors_for_ids(ids: list[str]) -> tuple[dict[str, np.ndarray], str]:
+    """Fetch popular vectors from Upstash and point-read any misses from R2."""
+    vecs = upstash_fetch_vectors(ids)
+    upstash_count = len(vecs)
+    missing = [int(i) for i in ids if i not in vecs]
+    if missing:
+        id_sql = ",".join(str(i) for i in missing[:50])
+        try:
+            rows = duck_all(
+                f"SELECT idx, vector FROM read_parquet("
+                f"'{R2_PATH}/embeddings/track2vec_vectors_lookup.parquet') "
+                f"WHERE idx IN ({id_sql})"
+            )
+            for idx, vector in rows:
+                # The R2 artifact stores the raw Word2Vec matrix; Upstash was
+                # exported from the normalized FAISS index. Normalize here so
+                # mixed fast-path/fallback centroids stay in the same space.
+                vecs[str(idx)] = _normalize(np.asarray(vector, dtype="float32"))
+        except Exception as exc:
+            print(f"  [vectors] R2 fallback failed: {exc}", flush=True)
+    if len(vecs) == upstash_count:
+        return vecs, "upstash"
+    return vecs, "mixed" if upstash_count else "r2_fallback"
+
+
 @router.get("/api/transition-finder")
 def transition_finder(from_uri: str, to_uri: str = "", to_artist: str = "", limit: int = 5):
     if not upstash_ready():
@@ -88,7 +114,7 @@ def transition_finder(from_uri: str, to_uri: str = "", to_artist: str = "", limi
     else:
         raise HTTPException(400, detail="provide to_uri or to_artist")
 
-    vecs = upstash_fetch_vectors([src_id] + tgt_ids)
+    vecs, vector_source = _vectors_for_ids([src_id] + tgt_ids)
     if src_id not in vecs:
         raise HTTPException(404, detail="source_track_not_in_index")
     tgt_list = [vecs[i] for i in tgt_ids if i in vecs]
@@ -110,12 +136,14 @@ def transition_finder(from_uri: str, to_uri: str = "", to_artist: str = "", limi
         if len(bridges) >= limit:
             break
 
+    record_event("transition", vector_source)
     to_info = ({"uri": to_uri, "title": tgt_title, "artist": tgt_artist}
                if to_uri else {"uri": to_uri, "title": None, "artist": to_artist or None})
     return {
         "from":    {"uri": from_uri, "title": src["track_name"], "artist": src["artist_name"]},
         "to":      to_info,
         "bridges": bridges,
+        "meta": {"query_vectors": vector_source, "candidate_scope": "popular_10k"},
     }
 
 
@@ -130,11 +158,13 @@ def doppelganger(artist: str, limit: int = 5):
         raise HTTPException(404, detail="artist_not_found")
 
     query_ids = [str(i) for i in idxs]
-    vecs = upstash_fetch_vectors(query_ids)
+    vecs, vector_source = _vectors_for_ids(query_ids)
 
-    # Artist's tracks aren't in the (popular-tracks) vector index → clean empty result.
     if not vecs:
-        return {"artist": artist_name, "track_count": 0, "doppelgangers": [], "note": "not_in_vector_index"}
+        record_event("doppelganger", "query_vectors_unavailable")
+        return {"artist": artist_name, "track_count": 0, "doppelgangers": [],
+                "note": "query_vectors_unavailable",
+                "meta": {"query_vectors": "unavailable", "candidate_scope": "popular_10k"}}
 
     centroid = _normalize(np.mean(list(vecs.values()), axis=0).astype("float32"))
 
@@ -163,8 +193,10 @@ def doppelganger(artist: str, limit: int = 5):
         lf = lastfm_lookup(name)
         return lf["tags"][:5] if lf else []
 
+    record_event("doppelganger", vector_source)
     return {
         "artist":        artist_name,
         "track_count":   len(vecs),
         "doppelgangers": [{"name": n, "similarity": round(sc, 4), "tags": _tags(n)} for n, sc in ranked],
+        "meta": {"query_vectors": vector_source, "candidate_scope": "popular_10k"},
     }

@@ -1,19 +1,47 @@
+import re
+import sqlite3
 from typing import Optional
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException
 
-from src.app.cache import _load_computed, local_parquet, duck_df, duck_one
+from src.app.cache import _load_computed, local_gzip_artifact, local_parquet, duck_df, duck_one
 from src.app.helpers import _to_list, _resolve_artist_row
+from src.app.telemetry import record_event
 from src.storage.duckdb_r2 import R2_PATH
 
 router = APIRouter()
 
 
+def _fts_query(value: str) -> str:
+    """Convert user text to a safe FTS5 token-prefix query."""
+    tokens = re.findall(r"\w+", value.casefold(), flags=re.UNICODE)[:8]
+    return " AND ".join(f'"{token}"*' for token in tokens)
+
+
+def _full_search(q: str, limit: int) -> list[dict]:
+    path = local_gzip_artifact("computed/track_search.sqlite.gz")
+    expression = _fts_query(q)
+    if path is None or not expression:
+        return []
+    uri = f"file:{path.as_posix()}?mode=ro&immutable=1"
+    with sqlite3.connect(uri, uri=True, timeout=3) as db:
+        db.execute("PRAGMA query_only=ON")
+        rows = db.execute("""
+            SELECT t.title, t.artist, t.uri
+            FROM tracks_fts f
+            JOIN tracks t ON t.id = f.rowid
+            WHERE tracks_fts MATCH ?
+            ORDER BY bm25(tracks_fts, 8.0, 2.0), t.popularity_rank
+            LIMIT ?
+        """, (expression, limit * 4)).fetchall()
+    return [{"title": r[0], "artist": r[1], "uri": r[2]} for r in rows]
+
+
 @router.get("/api/search-tracks")
 def search_tracks(q: str = "", limit: int = 10):
     if len(q.strip()) < 2:
-        return {"results": []}
+        return {"results": [], "meta": {"source": "validation", "coverage": "none"}}
 
     q_lower = q.lower().strip()
     limit   = min(limit, 20)
@@ -53,12 +81,30 @@ def search_tracks(q: str = "", limit: int = 10):
         except Exception:
             pass
 
-    # NOTE: previously topped up from the full tracks.parquet (2.26M rows) for
-    # titles missing from the vocab. On a 512 MB box that was a 348 MB unindexed
-    # R2 scan per search — the single biggest memory spike (probe: +60 MB anon).
-    # Dropped: the vocab_lookup (599K tracks) covers demo search fine. Restore
-    # via a small sorted search-index artifact if long-tail search is needed.
-    return {"results": results}
+    source = "embeddable_fast_path"
+    if len(results) < limit:
+        try:
+            for item in _full_search(q_lower, limit):
+                key = (item["title"], item["artist"])
+                if key in seen:
+                    continue
+                seen.add(key)
+                results.append(item)
+                if len(results) >= limit:
+                    break
+            source = "full_index"
+        except Exception as exc:
+            print(f"  [track_search] full-index fallback failed: {exc}", flush=True)
+
+    record_event("track_search", source if results else f"{source}_empty")
+    return {
+        "results": results,
+        "meta": {
+            "source": source,
+            "coverage": "all_tracks" if source == "full_index" else "embeddable_tracks",
+            "fallback_used": source == "full_index",
+        },
+    }
 
 
 @router.get("/api/song-passport/{track}")

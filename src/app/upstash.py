@@ -6,9 +6,13 @@ and the API fetches/queries them over HTTP. Vector ids are the string form of
 the vocab `idx` (== FAISS position). Metadata per vector: {uri, title, artist}.
 """
 import os
+from pathlib import Path
 
 import numpy as np
 import requests
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
 
 def _clean_env(name: str) -> str:

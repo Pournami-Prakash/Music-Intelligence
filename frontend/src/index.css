@@ -35,6 +35,11 @@
   textarea {
     font: inherit;
   }
+
+  :where(a, button, input, textarea, select, [tabindex]):focus-visible {
+    outline: 2px solid var(--accent, #53e076);
+    outline-offset: 3px;
+  }
 }
 
 @layer utilities {
@@ -261,6 +266,15 @@
 
   .atlas-error-signal button:hover {
     background: rgba(255, 92, 138, 0.14);
+  }
+
+  .atlas-coverage-note {
+    padding: 10px 12px;
+    border: 1px solid color-mix(in srgb, var(--accent, #3ddc97) 32%, rgba(255,255,255,0.1));
+    background: color-mix(in srgb, var(--accent, #3ddc97) 7%, rgba(10,10,10,0.92));
+    color: rgba(232,232,224,0.72);
+    font-size: 12px;
+    line-height: 1.5;
   }
 
   .dossier-ledger tr[tabindex]:focus-visible {
@@ -1083,6 +1097,10 @@
     border: 1px solid var(--glass-border);
     backdrop-filter: blur(14px);
   }
+  .pv-search-route {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    max-width: 920px;
+  }
   .pv-search input {
     min-width: 0;
     border: 0;
@@ -1250,5 +1268,12 @@
 
   @media (prefers-reduced-motion: reduce) {
     .pv-front { animation: none !important; }
+  }
+
+  @media (max-width: 700px) {
+    .pv-search-route {
+      grid-template-columns: minmax(0, 1fr);
+      border-radius: 18px;
+    }
   }
 }

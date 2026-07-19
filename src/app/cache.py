@@ -18,7 +18,9 @@ Exported for use by route modules:
 """
 
 import json
+import gzip
 import os
+import shutil
 import sys
 import tempfile
 import threading
@@ -136,6 +138,8 @@ _artist_adj:     Optional[dict]          = None
 _artist_name_map: dict[str, str]         = {}
 _manifest:       Optional[dict]          = None
 _manifest_ts:    float                   = 0.0
+_file_locks:     dict[str, threading.Lock] = {}
+_file_locks_guard = threading.Lock()
 
 # Parquets that almost never change get 24 h TTL; everything else 1 h.
 _STABLE_KEYS = {
@@ -155,6 +159,8 @@ _STABLE_KEYS = {
     "embeddings/track2vec_vocab_lookup.parquet",
     "enrichment/listenbrainz_lookup.parquet",
     "computed/era_tracks.parquet",
+    "computed/artist_ubiquity_lookup.parquet",
+    "computed/track_search.sqlite.gz",
 }
 _TTL_STABLE  = 86_400  # 24 h
 _TTL_DEFAULT = 3_600   # 1 h
@@ -236,7 +242,7 @@ def _load_computed(key: str) -> Optional[pd.DataFrame]:
         return _cache.get(key)
 
 
-def local_parquet(key: str) -> Optional[Path]:
+def local_artifact(key: str) -> Optional[Path]:
     """Ensure an R2 parquet is on local disk (download once, honour TTL) and
     return its path — WITHOUT loading it into pandas.
 
@@ -251,15 +257,56 @@ def local_parquet(key: str) -> Optional[Path]:
     if tmp.exists() and (time.time() - tmp.stat().st_mtime) < ttl:
         return tmp
 
-    tmp_new = tmp.with_name(tmp.name + ".new")
-    try:
-        tmp_new.unlink(missing_ok=True)
-        r2.download(key, tmp_new)
-        tmp_new.replace(tmp)
+    with _file_locks_guard:
+        lock = _file_locks.setdefault(key, threading.Lock())
+    with lock:
+        if tmp.exists() and (time.time() - tmp.stat().st_mtime) < ttl:
+            return tmp
+        tmp_new = tmp.with_name(tmp.name + ".new")
+        try:
+            tmp_new.unlink(missing_ok=True)
+            r2.download(key, tmp_new)
+            tmp_new.replace(tmp)
+            return tmp
+        except Exception as e:
+            print(f"  [local_artifact] {key} failed: {e}", flush=True)
+            return tmp if tmp.exists() else None  # stale copy beats nothing
+
+
+def local_parquet(key: str) -> Optional[Path]:
+    """Backward-compatible name for disk-backed parquet artifacts."""
+    return local_artifact(key)
+
+
+def local_gzip_artifact(key: str) -> Optional[Path]:
+    """Download a gzip object once and atomically expose its decompressed file."""
+    if not key.endswith(".gz"):
+        raise ValueError("gzip artifact key must end in .gz")
+    ttl = _TTL_STABLE if key in _STABLE_KEYS else _TTL_DEFAULT
+    tmp = Path(tempfile.gettempdir()) / key[:-3].replace("/", "_")
+    if tmp.exists() and (time.time() - tmp.stat().st_mtime) < ttl:
         return tmp
-    except Exception as e:
-        print(f"  [local_parquet] {key} failed: {e}", flush=True)
-        return tmp if tmp.exists() else None  # stale copy beats nothing
+    with _file_locks_guard:
+        lock = _file_locks.setdefault(key, threading.Lock())
+    with lock:
+        if tmp.exists() and (time.time() - tmp.stat().st_mtime) < ttl:
+            return tmp
+        archive = tmp.with_name(tmp.name + ".gz.new")
+        staging = tmp.with_name(tmp.name + ".new")
+        try:
+            archive.unlink(missing_ok=True)
+            staging.unlink(missing_ok=True)
+            r2.download(key, archive)
+            with gzip.open(archive, "rb") as src, staging.open("wb") as dst:
+                shutil.copyfileobj(src, dst, length=4 << 20)
+            staging.replace(tmp)
+            archive.unlink(missing_ok=True)
+            return tmp
+        except Exception as exc:
+            archive.unlink(missing_ok=True)
+            staging.unlink(missing_ok=True)
+            print(f"  [local_gzip_artifact] {key} failed: {exc}", flush=True)
+            return tmp if tmp.exists() else None
 
 
 def _load_manifest() -> Optional[dict]:

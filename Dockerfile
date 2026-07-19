@@ -3,7 +3,7 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PORT=7860 \
-    SKIP_STARTUP_WARMUP=1 \
+    SKIP_STARTUP_WARMUP=0 \
     # Tuned for a 512 MB box: serialize DuckDB (one heavy query at a time — the
     # 503 cap sheds the overflow) and cap its buffer so a single big R2 scan
     # (e.g. the search top-up over tracks.parquet) can't spike past the limit.

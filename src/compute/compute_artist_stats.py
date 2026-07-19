@@ -30,6 +30,7 @@ from src.storage.duckdb_r2 import get_con, R2_PATH
 from src.storage.r2 import R2Client
 
 R2_KEY = 'computed/artist_stats.parquet'
+UBIQUITY_R2_KEY = 'computed/artist_ubiquity_lookup.parquet'
 
 
 def main():
@@ -54,12 +55,19 @@ def main():
             ON pt.track_uri = t.track_uri
         GROUP BY t.artist_uri, t.artist_name
         ORDER BY playlist_count DESC
-        LIMIT {args.top_n}
     """).df()
     total_playlists = 1_000_000
     counts['playlist_pct'] = (counts['playlist_count'] / total_playlists * 100).round(3)
     counts['rank'] = range(1, len(counts) + 1)
-    print(f"    {len(counts):,} artists loaded")
+    counts['artist_name_lc'] = counts['artist_name'].astype('string').str.lower()
+    full_counts = counts.sort_values('artist_name_lc', kind='stable').reset_index(drop=True)
+    ubiquity_tmp = Path(tempfile.gettempdir()) / 'artist_ubiquity_lookup.parquet'
+    full_counts.to_parquet(ubiquity_tmp, index=False, compression='zstd', row_group_size=65_536)
+    r2.upload(ubiquity_tmp, UBIQUITY_R2_KEY, delete_after=True)
+    print(f"    {len(full_counts):,} artists written to R2:{UBIQUITY_R2_KEY}")
+
+    counts = counts.head(args.top_n).copy()
+    print(f"    {len(counts):,} rich artist rows retained")
     print(counts.head(5)[['artist_name', 'playlist_count', 'playlist_pct']].to_string(index=False))
 
     # 2. Top tracks per artist (all top-N artists)

@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom'
 import LottiePlayer from '../components/LottiePlayer'
 import TrackAutocomplete from '../components/TrackAutocomplete'
 import { PvPage, PvTop, PvHero, PvPanel } from '../components/Premium'
-import { apiUrl, getJson } from '../lib/api'
+import { apiUrl, errorMessage, getJson } from '../lib/api'
 
 const BRIDGE_COLORS = ['#5AC8FA', '#3DDC97', '#B08CF8', '#FB923C', '#22D3EE']
 const EXAMPLES = [
@@ -28,7 +28,7 @@ export default function TransitionFinder() {
     try {
       setResult(await getJson(`/api/transition-finder?from_uri=${encodeURIComponent(fUri)}&to_uri=${encodeURIComponent(tUri)}&limit=5`))
     } catch (e) {
-      setError(String(e.message || e))
+      setError(errorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -62,7 +62,7 @@ export default function TransitionFinder() {
         Choose two songs. The atlas proposes bridge tracks that make the jump feel natural inside real playlist culture.
       </PvHero>
 
-      <form className="pv-search" style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) auto' }} onSubmit={e => { e.preventDefault(); search(fromUri, toUri) }}>
+      <form className="pv-search pv-search-route" onSubmit={e => { e.preventDefault(); search(fromUri, toUri) }}>
         <div className="pv-search-field">
           <TrackAutocomplete value={fromTitle} onChange={v => { setFromTitle(v); setFromUri(null) }} onSelect={item => { setFromTitle(item.title); setFromUri(item.uri) }} placeholder="Starting song…" />
         </div>
@@ -86,7 +86,7 @@ export default function TransitionFinder() {
           <div className="pv-panel grid place-items-center" style={{ minHeight: 300 }}>
             <div className="text-center">
               <LottiePlayer src="/assets/audio-wave.json" className="w-48 h-24 mx-auto" />
-              <p className="mt-2 text-[var(--text-mid)]">Finding bridge tracks between both songs…</p>
+              <p className="mt-2 text-[var(--text-mid)]" role="status">Finding bridge tracks. Long-tail songs use a slower full-vector lookup…</p>
             </div>
           </div>
         )}
@@ -94,6 +94,7 @@ export default function TransitionFinder() {
         {error && !loading && (
           <div className="pv-panel text-center" style={{ padding: 40 }}>
             <p className="text-[var(--text-mid)]">Couldn't build a route between these two tracks.</p>
+            <p className="text-[var(--text-low)] text-xs mt-2">{error}</p>
             <button onClick={() => search(fromUri, toUri)} className="pv-link mt-4 inline-block px-6" style={{ color: '#B08CF8' }}>Try again</button>
           </div>
         )}
@@ -109,6 +110,9 @@ export default function TransitionFinder() {
 
         {result && !loading && (
           <div className="space-y-4">
+            {result.meta?.query_vectors === 'r2_fallback' && (
+              <p className="atlas-coverage-note">Both query songs came from the full R2 vector table. Bridge candidates currently come from the 10,000-track fast index.</p>
+            )}
             <PvPanel label="Mix route" className="atlas-rise" style={{ '--i': 0 }}>
               <div className="grid grid-cols-1 xl:grid-cols-[200px_minmax(0,1fr)_200px] gap-4 items-center">
                 <div className="pv-cell text-center">

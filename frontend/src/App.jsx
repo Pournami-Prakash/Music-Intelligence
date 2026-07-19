@@ -1,38 +1,41 @@
-import { useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Sidebar from './components/Sidebar'
-import Home from './pages/Home'
-import MoodMap from './pages/MoodMap'
-import GenreWeather from './pages/GenreWeather'
-import GroupBlend from './pages/GroupBlend'
-import SoundtrackGift from './pages/SoundtrackGift'
-import AncestryExplorer from './pages/AncestryExplorer'
-import PlaylistForensics from './pages/PlaylistForensics'
-import SixDegrees from './pages/SixDegrees'
-import ArtistUbiquity from './pages/ArtistUbiquity'
-import PlaylistLanguage from './pages/PlaylistLanguage'
-import EditorialGraveyard from './pages/EditorialGraveyard'
-import CooccurrenceCompass from './pages/CooccurrenceCompass'
-import SongPassport from './pages/SongPassport'
-import ArtistHabitat from './pages/ArtistHabitat'
-import BasicnessIndex from './pages/BasicnessIndex'
-import MoodContradiction from './pages/MoodContradiction'
-import TransitionFinder from './pages/TransitionFinder'
-import PlaylistDoppelganger from './pages/PlaylistDoppelganger'
-import PlaylistRoast from './pages/PlaylistRoast'
-import TimeCapsule from './pages/TimeCapsule'
-import SongCollision from './pages/SongCollision'
-import ForgottenHits from './pages/ForgottenHits'
-import MainCharacter from './pages/MainCharacter'
-import TrendExplorer from './pages/TrendExplorer'
-import GuiltyPleasureMap from './pages/GuiltyPleasureMap'
-import OverlapArena from './pages/OverlapArena'
-import PlaylistNameGenerator from './pages/PlaylistNameGenerator'
-import RoomPage from './pages/RoomPage'
-import NotFound from './pages/NotFound'
+import { warmBackend } from './lib/api'
+
+const Home = lazy(() => import('./pages/Home'))
+const MoodMap = lazy(() => import('./pages/MoodMap'))
+const GenreWeather = lazy(() => import('./pages/GenreWeather'))
+const GroupBlend = lazy(() => import('./pages/GroupBlend'))
+const SoundtrackGift = lazy(() => import('./pages/SoundtrackGift'))
+const AncestryExplorer = lazy(() => import('./pages/AncestryExplorer'))
+const PlaylistForensics = lazy(() => import('./pages/PlaylistForensics'))
+const SixDegrees = lazy(() => import('./pages/SixDegrees'))
+const ArtistUbiquity = lazy(() => import('./pages/ArtistUbiquity'))
+const PlaylistLanguage = lazy(() => import('./pages/PlaylistLanguage'))
+const EditorialGraveyard = lazy(() => import('./pages/EditorialGraveyard'))
+const CooccurrenceCompass = lazy(() => import('./pages/CooccurrenceCompass'))
+const SongPassport = lazy(() => import('./pages/SongPassport'))
+const ArtistHabitat = lazy(() => import('./pages/ArtistHabitat'))
+const BasicnessIndex = lazy(() => import('./pages/BasicnessIndex'))
+const MoodContradiction = lazy(() => import('./pages/MoodContradiction'))
+const TransitionFinder = lazy(() => import('./pages/TransitionFinder'))
+const PlaylistDoppelganger = lazy(() => import('./pages/PlaylistDoppelganger'))
+const PlaylistRoast = lazy(() => import('./pages/PlaylistRoast'))
+const TimeCapsule = lazy(() => import('./pages/TimeCapsule'))
+const SongCollision = lazy(() => import('./pages/SongCollision'))
+const ForgottenHits = lazy(() => import('./pages/ForgottenHits'))
+const MainCharacter = lazy(() => import('./pages/MainCharacter'))
+const TrendExplorer = lazy(() => import('./pages/TrendExplorer'))
+const GuiltyPleasureMap = lazy(() => import('./pages/GuiltyPleasureMap'))
+const OverlapArena = lazy(() => import('./pages/OverlapArena'))
+const PlaylistNameGenerator = lazy(() => import('./pages/PlaylistNameGenerator'))
+const RoomPage = lazy(() => import('./pages/RoomPage'))
+const NotFound = lazy(() => import('./pages/NotFound'))
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  useEffect(() => { warmBackend() }, [])
   return (
     <BrowserRouter>
       <div className="flex w-full min-h-screen bg-atlas-bg">
@@ -50,6 +53,7 @@ export default function App() {
           </span>
         </button>
         <main className="flex-1 lg:ml-56 min-h-screen overflow-x-hidden">
+          <Suspense fallback={<div className="min-h-screen grid place-items-center text-atlas-muted" role="status">Opening atlas room…</div>}>
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/artist-observatory" element={<RoomPage roomId="artist-observatory" />} />
@@ -86,6 +90,7 @@ export default function App() {
             <Route path="/name-generator" element={<PlaylistNameGenerator />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </Suspense>
         </main>
       </div>
     </BrowserRouter>

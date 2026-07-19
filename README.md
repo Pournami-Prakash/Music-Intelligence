@@ -42,3 +42,41 @@ uvicorn src.app.main:app --reload --port 8000
 cd frontend && npm install && npm run dev
 ```
 Requires a `.env` with `R2_*` keys (see `.env.example`).
+
+## Serving coverage and fallbacks
+
+The serving layer keeps the canonical R2 dataset intact and uses bounded,
+disk-backed fallbacks on small hosts:
+
+- Track autocomplete searches the 599K embedding vocabulary first, then a
+  SQLite FTS5 index containing all 2.26M searchable tracks.
+- Artist Ubiquity serves rich detail for the top 10K artists and exact rank /
+  playlist reach for the full artist table from a slim precomputed lookup.
+- Doppelganger and Transition fetch long-tail query vectors from an idx-sorted
+  R2 Parquet lookup. Upstash remains the fast 10K candidate index.
+- Artist images use the cached 10K artifact, optionally try Spotify when
+  credentials exist, and otherwise return explicit placeholder metadata.
+
+After source data or embeddings change, publish the new serving artifacts:
+
+```bash
+DUCKDB_MEMORY_LIMIT=1GB python -m src.compute.export_lookup_artifacts \
+  --only artist_ubiquity track_search vector_lookup
+```
+
+The command writes new derived artifacts and does not alter the canonical
+playlist, track, or enrichment tables. The full track index and vector lookup
+are intentionally lazy on the API host so popular demo queries do not pay their
+download cost.
+
+## Operations
+
+- `GET /health` is the liveness check.
+- `GET /ready` reports background warmup state.
+- `GET /api/capabilities` describes fast-path and fallback coverage.
+- `GET /api/ops` returns process-local, anonymous route/latency/coverage
+  counters. Query values, IP addresses, and headers are never retained.
+
+The 512 MB deployment warms its small critical lookups sequentially, allows at
+most four in-flight requests, serializes DuckDB work, and returns `503` with a
+`Retry-After` header instead of building an unbounded queue.

@@ -12,6 +12,15 @@ const Lottie = LottieImport?.default ?? LottieImport
  */
 export default function LottiePlayer({ src, loop = true, autoplay = true, className, style }) {
   const [data, setData] = useState(null)
+  const [reduceMotion, setReduceMotion] = useState(false)
+
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const update = () => setReduceMotion(media.matches)
+    update()
+    media.addEventListener?.('change', update)
+    return () => media.removeEventListener?.('change', update)
+  }, [])
 
   useEffect(() => {
     let alive = true
@@ -25,6 +34,8 @@ export default function LottiePlayer({ src, loop = true, autoplay = true, classN
 
   if (!data) return <div className={className} style={style} aria-hidden="true" />
   return (
-    <Lottie animationData={data} loop={loop} autoplay={autoplay} className={className} style={style} />
+    <div aria-hidden="true" className={className} style={style}>
+      <Lottie animationData={data} loop={reduceMotion ? false : loop} autoplay={reduceMotion ? false : autoplay} />
+    </div>
   )
 }

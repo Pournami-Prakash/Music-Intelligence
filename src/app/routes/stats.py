@@ -1,13 +1,51 @@
+from threading import Lock
 from fastapi import APIRouter
 
 from src.app.cache import _load_manifest
+from src.app.telemetry import snapshot
+from src.app.upstash import upstash_ready
 
 router = APIRouter()
+_warm_state = "starting"
+_warm_lock = Lock()
+
+
+def set_warm_state(value: str) -> None:
+    global _warm_state
+    with _warm_lock:
+        _warm_state = value
 
 
 @router.get("/health")
 def health():
     return {"status": "ok", "version": "0.2.0"}
+
+
+@router.get("/ready")
+def ready():
+    with _warm_lock:
+        state = _warm_state
+    return {"status": state, "ready": state in {"ready", "deferred"}}
+
+
+@router.get("/api/capabilities")
+def capabilities():
+    return {
+        "track_search": {"fast_path": 599_341, "full_index": 2_262_292},
+        "artist_ubiquity": {"rank_coverage": 295_860, "rich_details": 10_000},
+        "vectors": {
+            "query_coverage": 599_341,
+            "candidate_index": "popular_10k",
+            "available": upstash_ready(),
+        },
+        "artist_images": {"cached": 10_000, "live_optional": True},
+    }
+
+
+@router.get("/api/ops")
+def ops():
+    """Anonymous process-local counters; reset whenever the free host restarts."""
+    return snapshot()
 
 
 @router.get("/api/stats")

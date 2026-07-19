@@ -3,10 +3,10 @@
 # Then set the secret values (sync:false vars) in the dashboard.
 #
 # Notes:
-#  - Free instances have 512 MB RAM and spin down after ~15 min idle; the first
-#    request after idle cold-starts (re-downloads ~105 MB of lookup parquets from
-#    R2, ~30-60 s). Warm it before a demo. Fine for light/single-user traffic;
-#    heavy concurrent load can OOM-restart (see deploy/LINUX_LOADTEST.md).
+#  - Free instances have 512 MB RAM and spin down after ~15 min idle. Startup
+#    begins warming the small critical lookups in the background; /ready exposes
+#    progress and the frontend pings it immediately. Large full-search/vector
+#    fallback artifacts remain lazy. See deploy/LINUX_LOADTEST.md.
 #  - The image is already tuned for 512 MB (DUCKDB_MAX_CONCURRENCY=1, jemalloc,
 #    503 load-shedding) via the Dockerfile ENV.
 services:
@@ -18,7 +18,11 @@ services:
     healthCheckPath: /health
     envVars:
       - key: SKIP_STARTUP_WARMUP
-        value: "1"
+        value: "0"
+      - key: MAX_INFLIGHT_REQUESTS
+        value: "4"
+      - key: REQUEST_ACQUIRE_TIMEOUT
+        value: "2"
       # ── set these in the Render dashboard (Environment tab) ──
       - key: R2_ACCOUNT_ID
         sync: false

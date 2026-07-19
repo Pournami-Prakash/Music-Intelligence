@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import LottiePlayer from '../components/LottiePlayer'
 import { CountUp } from '../components/Observatory'
 import { PvPage, PvTop, PvHero, PvSearch, PvChips, PvPanel } from '../components/Premium'
+import { ErrorSignal } from '../components/SignalState'
 import { errorMessage, getJson, getExample } from '../lib/api'
 
 const ACCENT = '#B08CF8'
@@ -12,6 +13,7 @@ export default function PlaylistDoppelganger() {
   const [query, setQuery] = useState('')
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const location = useLocation()
 
   useEffect(() => {
@@ -23,11 +25,13 @@ export default function PlaylistDoppelganger() {
     if (!q?.trim()) return
     setLoading(true)
     setResult(null)
+    setError(null)
     try {
-      setResult((await getExample('doppelganger-examples.json', q))
-        || await getJson(`/api/doppelganger/${encodeURIComponent(q)}`))
+      const snapshot = await getExample('doppelganger-examples.json', q)
+      setResult(snapshot ? { ...snapshot, _snapshot: true }
+        : await getJson(`/api/doppelganger/${encodeURIComponent(q)}`))
     } catch (e) {
-      setResult({ artist: q, track_count: 0, doppelgangers: [], _demo: true, _error: errorMessage(e) })
+      setError(errorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -50,12 +54,18 @@ export default function PlaylistDoppelganger() {
           <div className="pv-panel grid place-items-center" style={{ minHeight: 320 }}>
             <div className="text-center">
               <LottiePlayer src="/assets/search.json" className="w-40 h-40 mx-auto" />
-              <p className="mt-2 text-[var(--text-mid)]">Finding your doppelgängers…</p>
+              <p className="mt-2 text-[var(--text-mid)]" role="status">Finding sonic neighbors. Long-tail artists use a slower full-vector lookup…</p>
             </div>
           </div>
         )}
 
-        {!result && !loading && (
+        {error && !loading && (
+          <ErrorSignal detail={error} onRetry={() => search(query)}>
+            We couldn’t complete this similarity search.
+          </ErrorSignal>
+        )}
+
+        {!result && !loading && !error && (
           <div className="pv-panel grid place-items-center" style={{ minHeight: 320 }}>
             <div className="text-center max-w-md">
               <LottiePlayer src="/assets/search.json" className="w-40 h-40 mx-auto" />
@@ -64,10 +74,11 @@ export default function PlaylistDoppelganger() {
           </div>
         )}
 
-        {result && !loading && (
+        {result && !loading && !error && (
           <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px] gap-4 items-start">
             <PvPanel label="Closest twins" className="atlas-rise" style={{ '--i': 0 }}>
-              {result._demo && <p className="mb-3 text-xs text-[var(--warning)]">Sample data — {result._error || 'live endpoint unavailable'}.</p>}
+              {result._snapshot && <p className="atlas-coverage-note mb-3">Cached result from the same full-data query, available while the free demo host wakes up.</p>}
+              {result.meta?.query_vectors === 'r2_fallback' && <p className="atlas-coverage-note mb-3">This long-tail artist was read from the full R2 vector table. Matches are drawn from the 10,000-track fast candidate index.</p>}
               <div className="space-y-px">
                 {(result.doppelgangers || []).map((d, i) => (
                   <Link
@@ -85,7 +96,7 @@ export default function PlaylistDoppelganger() {
                     <span className="text-sm font-semibold" style={{ color: ACCENT }}>{(d.similarity * 100).toFixed(0)}%</span>
                   </Link>
                 ))}
-                {result.doppelgangers?.length === 0 && <p className="text-[var(--text-low)] text-sm">No doppelgängers found for this artist.</p>}
+                {result.doppelgangers?.length === 0 && <p className="text-[var(--text-low)] text-sm">No reliable matches were found. This is a completed search, not missing artist data; candidate matching currently covers the 10,000-track fast index.</p>}
               </div>
             </PvPanel>
 
