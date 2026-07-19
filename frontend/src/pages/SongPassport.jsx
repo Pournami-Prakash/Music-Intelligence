@@ -4,7 +4,7 @@ import LottiePlayer from '../components/LottiePlayer'
 import TrackAutocomplete from '../components/TrackAutocomplete'
 import { CountUp, SpinningRecord } from '../components/Observatory'
 import { PvPage, PvTop, PvHero, PvChips, PvPanel } from '../components/Premium'
-import { errorMessage, getJson } from '../lib/api'
+import { errorMessage, getJson, getExample } from '../lib/api'
 
 const ACCENT = '#5AC8FA'
 const SUGGESTIONS = ['Mr. Brightside', 'Bohemian Rhapsody', 'HUMBLE.', 'Shape of You', 'Blinding Lights']
@@ -25,7 +25,8 @@ export default function SongPassport() {
     setLoading(true)
     setResult(null)
     try {
-      const data = await getJson(`/api/song-passport/${encodeURIComponent(q)}`)
+      const data = (await getExample('song-passport-examples.json', q))
+        || await getJson(`/api/song-passport/${encodeURIComponent(q)}`)
       setResult({
         title: data.title,
         artist: data.artist,

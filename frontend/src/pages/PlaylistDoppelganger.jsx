@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import LottiePlayer from '../components/LottiePlayer'
 import { CountUp } from '../components/Observatory'
 import { PvPage, PvTop, PvHero, PvSearch, PvChips, PvPanel } from '../components/Premium'
-import { errorMessage, getJson } from '../lib/api'
+import { errorMessage, getJson, getExample } from '../lib/api'
 
 const ACCENT = '#B08CF8'
 const SUGGESTIONS = ['Drake', 'Phoebe Bridgers', 'Radiohead', 'Tyler, the Creator', 'SZA']
@@ -24,7 +24,8 @@ export default function PlaylistDoppelganger() {
     setLoading(true)
     setResult(null)
     try {
-      setResult(await getJson(`/api/doppelganger/${encodeURIComponent(q)}`))
+      setResult((await getExample('doppelganger-examples.json', q))
+        || await getJson(`/api/doppelganger/${encodeURIComponent(q)}`))
     } catch (e) {
       setResult({ artist: q, track_count: 0, doppelgangers: [], _demo: true, _error: errorMessage(e) })
     } finally {
