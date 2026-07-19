@@ -25,13 +25,16 @@ from src.app.routes import stats, artists, tracks, discovery, social, playlists,
 
 app = FastAPI(title="Music Intelligence Atlas API", version="0.2.0")
 
-_DEV_ORIGINS  = ["http://localhost:5173", "http://localhost:3000"]
-_PROD_ORIGIN  = os.environ.get("FRONTEND_URL", "").strip()
-_ALLOWED_ORIGINS = [_PROD_ORIGIN] + _DEV_ORIGINS if _PROD_ORIGIN else _DEV_ORIGINS
+# This is a public, read-only, cookie-less API, so allow any origin by default —
+# that avoids CORS breakage when the frontend URL changes (Vercel previews, custom
+# domains). Lock it down by setting CORS_ALLOW_ORIGINS to a comma-separated list.
+_ORIGINS_ENV = os.environ.get("CORS_ALLOW_ORIGINS", "").strip()
+_ALLOWED_ORIGINS = [o.strip() for o in _ORIGINS_ENV.split(",") if o.strip()] or ["*"]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_ALLOWED_ORIGINS,
+    allow_credentials=False,   # required alongside "*"; API uses no cookies
     allow_methods=["*"],
     allow_headers=["*"],
 )
