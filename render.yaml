@@ -1,0 +1,38 @@
+# Render blueprint for the Atlas backend (free tier, Docker).
+# Deploy: Render → New → Blueprint → connect this repo → apply.
+# Then set the secret values (sync:false vars) in the dashboard.
+#
+# Notes:
+#  - Free instances have 512 MB RAM and spin down after ~15 min idle; the first
+#    request after idle cold-starts (re-downloads ~105 MB of lookup parquets from
+#    R2, ~30-60 s). Warm it before a demo. Fine for light/single-user traffic;
+#    heavy concurrent load can OOM-restart (see deploy/LINUX_LOADTEST.md).
+#  - The image is already tuned for 512 MB (DUCKDB_MAX_CONCURRENCY=1, jemalloc,
+#    503 load-shedding) via the Dockerfile ENV.
+services:
+  - type: web
+    name: music-intelligence-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: SKIP_STARTUP_WARMUP
+        value: "1"
+      # ── set these in the Render dashboard (Environment tab) ──
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+      - key: UPSTASH_VECTOR_REST_URL
+        sync: false
+      - key: UPSTASH_VECTOR_REST_TOKEN
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: FRONTEND_URL
+        value: https://music-intelligence-blue.vercel.app
