@@ -56,7 +56,7 @@ export default function AncestryExplorer() {
         {loading && (
           <div className="pv-panel grid place-items-center" style={{ minHeight: 320 }}>
             <div className="text-center">
-              <LottiePlayer src="/assets/loading-cubes.json" className="w-32 h-32 mx-auto" />
+              <LottiePlayer src="/assets/cloud-technology.lottie" className="w-32 h-32 mx-auto" />
               <p className="mt-2 text-[var(--text-mid)]">Tracing lineage…</p>
             </div>
           </div>
@@ -65,7 +65,7 @@ export default function AncestryExplorer() {
         {!data && !loading && (
           <div className="pv-panel grid place-items-center" style={{ minHeight: 320 }}>
             <div className="text-center max-w-md">
-              <LottiePlayer src="/assets/loading-cubes.json" className="w-32 h-32 mx-auto" />
+              <LottiePlayer src="/assets/cloud-technology.lottie" className="w-32 h-32 mx-auto" />
               <p className="mt-2 text-[var(--text-mid)]">Search an artist to explore their lineage.</p>
             </div>
           </div>

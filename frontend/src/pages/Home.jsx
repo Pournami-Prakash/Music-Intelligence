@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ArrowUpRight, Search } from 'lucide-react'
 import { ROOM_ORDER, ROOMS } from '../data/rooms'
 import { CountUp } from '../components/Observatory'
+import LottiePlayer from '../components/LottiePlayer'
 import { apiUrl } from '../lib/api'
 
 const DEFAULT_STATS = {
@@ -52,51 +53,64 @@ export default function Home() {
         <div className="pv-pill">Active archive</div>
       </div>
 
-      <header className="pv-hero" style={{ maxWidth: 860 }}>
-        <p className="pv-eyebrow">Playlist intelligence</p>
-        <h1>Music Intelligence <span style={{ color: 'var(--accent)' }}>Atlas</span></h1>
-        <p>A cultural map of playlists — artist footprints, song passports, title language, taste routes, and editorial afterlives.</p>
-      </header>
+      <section className="pv-home-stage">
+        <div className="pv-home-copy">
+          <p className="pv-eyebrow">Playlist intelligence / 01</p>
+          <h1>Hear what<br />a million<br /><span>playlists</span> reveal.</h1>
+          <p className="pv-home-deck">A cultural atlas built from the way people group music—not what a genre chart says, but where songs and artists actually live.</p>
 
-      <form className="pv-search" onSubmit={openDossier}>
-        <div className="pv-search-field">
-          <Search size={16} className="text-[var(--text-low)] shrink-0" />
-          <input
-            aria-label="Atlas search"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Search an artist or room…"
-          />
+          <form className="pv-search" onSubmit={openDossier}>
+            <div className="pv-search-field">
+              <Search size={16} className="text-[var(--text-low)] shrink-0" />
+              <input
+                aria-label="Atlas search"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="Try an artist, song, or room…"
+              />
+            </div>
+            <button type="submit" disabled={!query.trim()}>Enter Atlas</button>
+          </form>
         </div>
-        <button type="submit" disabled={!query.trim()}>Search Atlas</button>
-      </form>
 
-      <div className="max-w-6xl mt-8">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="pv-home-lottie">
+          <LottiePlayer src="/assets/earth-connections.json" className="w-full h-full" />
+          <div className="pv-stage-caption"><span>Live corpus</span><b>66M relationships</b></div>
+        </div>
+      </section>
+
+      <div className="max-w-6xl mt-10">
+        <div className="pv-provenance-rail">
           {[
             [<CountUp key="p" value={stats.playlists} />, 'playlists'],
             [<CountUp key="t" value={stats.tracks / 1_000_000} decimals={2} suffix="M" />, 'tracks'],
             [<CountUp key="c" value={stats.playlist_track_rows / 1_000_000} suffix="M" />, 'co-occurrences'],
             [<CountUp key="e" value={stats.editorial_playlists} />, 'editorial lists'],
           ].map(([value, label], i) => (
-            <div key={label} className="pv-stat atlas-rise" style={{ '--i': i }}>
+            <div key={label} className="pv-provenance-item atlas-rise" style={{ '--i': i }}>
               <b>{value}</b>
               <small>{label}</small>
             </div>
           ))}
         </div>
 
-        <h2 className="pv-panel-label mt-12 mb-4">Choose a room</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="pv-section-intro">
+          <p>Six ways into the archive</p>
+          <h2>Choose the question, not the chart.</h2>
+        </div>
+        <div className="pv-room-index">
           {ROOM_ORDER.map((id, index) => {
             const room = ROOMS[id]
             return (
-              <Link key={id} to={`/${id}`} className="pv-card atlas-rise" style={{ '--rc': room.accent, '--i': index }}>
+              <Link key={id} to={`/${id}`} className="pv-room-entry atlas-rise" style={{ '--rc': room.accent, '--i': index }}>
+                <span className="pv-room-number">0{index + 1}</span>
                 <ArrowUpRight size={16} className="pv-card-arrow" />
-                <span className="pv-card-eyebrow">{room.eyebrow}</span>
-                <h3>{room.name}</h3>
+                <div>
+                  <span className="pv-card-eyebrow">{room.eyebrow}</span>
+                  <h3>{room.name}</h3>
+                </div>
                 <p>{room.description}</p>
-                <div className="pv-chiplist">
+                <div className="pv-room-signals">
                   {(ROOM_META[id] || room.stats).map(item => <span key={item}>{item}</span>)}
                 </div>
               </Link>
@@ -104,10 +118,10 @@ export default function Home() {
           })}
         </div>
 
-        <h2 className="pv-panel-label mt-12 mb-4">Fast entry points</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <h2 className="pv-panel-label mt-16 mb-4">Or jump straight into a known signal</h2>
+        <div className="pv-fast-entries">
           {FAST_ENTRY.map(([label, to, state, accent]) => (
-            <Link key={label} to={to} state={state} className="pv-card" style={{ '--rc': accent, padding: '18px 20px' }}>
+            <Link key={label} to={to} state={state} className="pv-fast-entry" style={{ '--rc': accent }}>
               <ArrowUpRight size={15} className="pv-card-arrow" style={{ top: 18, right: 18 }} />
               <span className="text-sm font-semibold" style={{ color: accent }}>{label}</span>
             </Link>

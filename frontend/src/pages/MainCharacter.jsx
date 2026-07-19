@@ -79,7 +79,7 @@ export default function MainCharacter() {
         {loading && (
           <div className="pv-panel grid place-items-center" style={{ minHeight: 300 }}>
             <div className="text-center">
-              <LottiePlayer src="/assets/formula-pulse.json" className="w-40 h-40 mx-auto" />
+              <LottiePlayer src="/assets/trending-upward.lottie" className="w-40 h-40 mx-auto" />
               <p className="mt-2 text-[var(--text-mid)]">Computing main-character energy…</p>
             </div>
           </div>
@@ -88,7 +88,7 @@ export default function MainCharacter() {
         {!result && !loading && (
           <div className="pv-panel grid place-items-center" style={{ minHeight: 300 }}>
             <div className="text-center max-w-md">
-              <LottiePlayer src="/assets/pulse-green.json" className="w-32 h-32 mx-auto" />
+              <LottiePlayer src="/assets/trending-upward.lottie" className="w-32 h-32 mx-auto" />
               <p className="mt-2 text-[var(--text-mid)]">Search an artist to score their main-character energy.</p>
             </div>
           </div>

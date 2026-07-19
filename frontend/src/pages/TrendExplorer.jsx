@@ -54,7 +54,7 @@ export default function TrendExplorer() {
         {loading && (
           <div className="pv-panel grid place-items-center" style={{ minHeight: 300 }}>
             <div className="text-center">
-              <LottiePlayer src="/assets/search.json" className="w-40 h-40 mx-auto" />
+              <LottiePlayer src="/assets/letters.lottie" className="w-40 h-40 mx-auto" />
               <p className="mt-2 text-[var(--text-mid)]">Scanning playlist language…</p>
             </div>
           </div>
@@ -63,7 +63,7 @@ export default function TrendExplorer() {
         {!result && !loading && (
           <div className="pv-panel grid place-items-center" style={{ minHeight: 300 }}>
             <div className="text-center max-w-md">
-              <LottiePlayer src="/assets/search.json" className="w-40 h-40 mx-auto" />
+              <LottiePlayer src="/assets/letters.lottie" className="w-40 h-40 mx-auto" />
               <p className="mt-2 text-[var(--text-mid)]">Search any word from playlist titles to see its cultural gravity.</p>
             </div>
           </div>

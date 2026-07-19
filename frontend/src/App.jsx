@@ -1,7 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import Sidebar from './components/Sidebar'
-import PageAtmosphere from './components/PageAtmosphere'
 import { getPageScene } from './data/pageScenes'
 import { warmBackend } from './lib/api'
 
@@ -60,7 +59,6 @@ function AtlasShell() {
           data-atlas-scene={scene[0]}
           style={{ '--route-accent': scene[3] }}
         >
-          <PageAtmosphere scene={scene} />
           <div className="atlas-route-content">
             <Suspense fallback={<div className="min-h-screen grid place-items-center text-atlas-muted" role="status">Opening atlas room…</div>}>
             <Routes>

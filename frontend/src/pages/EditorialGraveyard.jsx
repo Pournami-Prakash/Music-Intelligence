@@ -25,7 +25,7 @@ export default function EditorialGraveyard() {
           Browse the tracks that entered Spotify editorial playlists, stayed a while, then vanished from the official shelf.
         </PvHero>
         <div className="pv-panel max-w-6xl grid place-items-center" style={{ minHeight: 340 }}>
-          <div className="text-center"><LottiePlayer src="/assets/no-data.json" className="w-40 h-40 mx-auto" /><p className="mt-2 text-[var(--text-mid)]">Opening the removal ledger…</p></div>
+          <div className="text-center"><LottiePlayer src="/assets/cassette-tape.lottie" className="w-40 h-40 mx-auto" /><p className="mt-2 text-[var(--text-mid)]">Opening the removal ledger…</p></div>
         </div>
       </PvPage>
     )

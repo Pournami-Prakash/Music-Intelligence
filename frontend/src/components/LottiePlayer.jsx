@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import LottieImport from 'lottie-react'
+
+const DotLottie = lazy(() => import('@lottiefiles/dotlottie-react').then(module => ({ default: module.DotLottieReact })))
 
 // Vite's CJS interop can double-nest the default export (default.default is the
 // actual component). Resolve it defensively so this works across bundlers.
@@ -13,6 +15,7 @@ const Lottie = LottieImport?.default ?? LottieImport
 export default function LottiePlayer({ src, loop = true, autoplay = true, className, style }) {
   const [data, setData] = useState(null)
   const [reduceMotion, setReduceMotion] = useState(false)
+  const isDotLottie = src?.toLowerCase().endsWith('.lottie')
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -23,6 +26,7 @@ export default function LottiePlayer({ src, loop = true, autoplay = true, classN
   }, [])
 
   useEffect(() => {
+    if (isDotLottie) return undefined
     let alive = true
     setData(null)
     fetch(src)
@@ -30,11 +34,27 @@ export default function LottiePlayer({ src, loop = true, autoplay = true, classN
       .then(d => { if (alive) setData(d) })
       .catch(() => {})
     return () => { alive = false }
-  }, [src])
+  }, [src, isDotLottie])
 
-  if (!data) return <div className={className} style={style} aria-hidden="true" />
+  const classes = `atlas-lottie ${className || ''}`.trim()
+  if (isDotLottie) {
+    return (
+      <div aria-hidden="true" className={classes} data-lottie={src} style={style}>
+        <Suspense fallback={null}>
+          <DotLottie
+            src={src}
+            loop={reduceMotion ? false : loop}
+            autoplay={reduceMotion ? false : autoplay}
+            renderConfig={{ autoResize: true }}
+            style={{ width: '100%', height: '100%' }}
+          />
+        </Suspense>
+      </div>
+    )
+  }
+  if (!data) return <div className={classes} data-lottie={src} style={style} aria-hidden="true" />
   return (
-    <div aria-hidden="true" className={className} style={style}>
+    <div aria-hidden="true" className={classes} data-lottie={src} style={style}>
       <Lottie animationData={data} loop={reduceMotion ? false : loop} autoplay={reduceMotion ? false : autoplay} />
     </div>
   )

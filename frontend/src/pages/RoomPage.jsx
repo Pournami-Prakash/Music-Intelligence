@@ -1,6 +1,16 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight, ArrowUpRight } from 'lucide-react'
 import { ROOMS } from '../data/rooms'
+import LottiePlayer from '../components/LottiePlayer'
+
+const ROOM_LOTTIES = {
+  'deep-map': '/assets/radar.json',
+  'artist-observatory': '/assets/earth-connections.json',
+  'song-world': '/assets/turntable.json',
+  'vibe-dictionary': '/assets/letters.lottie',
+  'taste-tunnel': '/assets/cloud-technology.lottie',
+  'drop-archive': '/assets/cassette-tape.lottie',
+}
 
 export default function RoomPage({ roomId }) {
   const room = ROOMS[roomId]
@@ -21,65 +31,57 @@ export default function RoomPage({ roomId }) {
         <div className="pv-pill">{room.code} room</div>
       </div>
 
-      <header className="pv-hero">
-        <p className="pv-eyebrow">Room briefing</p>
-        <h1>{room.name}</h1>
-        <p>{room.description}</p>
-      </header>
-
-      <div className="max-w-6xl space-y-4">
-        <div className="grid grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)] gap-4 items-start">
-          <section className="pv-panel atlas-rise" style={{ '--i': 0 }}>
-            <p className="pv-panel-label">Recommended entry</p>
-            <p className="text-xl font-bold text-[var(--text-hi)]">{room.primary[0]}</p>
-            <p className="text-[var(--text-mid)] text-sm mt-1">Start here in {room.name}.</p>
+      <section className="pv-room-stage">
+        <div className="pv-room-stage-copy">
+          <p className="pv-eyebrow">Room {room.code} / Begin here</p>
+          <h1>{room.name}</h1>
+          <p>{room.description}</p>
+          <div className="pv-room-signal-line">
+            {room.stats.map((stat, i) => <span key={stat}>0{i + 1} {stat}</span>)}
+          </div>
+          <div className="pv-room-primary">
+            <small>Recommended first experiment</small>
+            <strong>{room.primary[0]}</strong>
             <Link
               to={room.primary[1]}
               state={room.primary[2]}
-              className="mt-5 inline-flex items-center justify-center gap-2 w-full rounded-full px-5 py-2.5 text-sm font-semibold"
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold"
               style={{ background: room.accent, color: '#04140D' }}
             >
-              Open feature <ArrowRight size={15} />
+              Enter experiment <ArrowRight size={15} />
             </Link>
-          </section>
-
-          <section className="pv-panel atlas-rise" style={{ '--i': 1 }}>
-            <p className="pv-panel-label">Room signals</p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {room.stats.map((stat, i) => (
-                <div key={stat} className="pv-cell">
-                  <small>{String(i + 1).padStart(2, '0')} / {room.code}</small>
-                  <strong className="text-base">{stat}</strong>
-                </div>
-              ))}
-            </div>
-            <p className="text-[var(--text-mid)] text-sm leading-relaxed mt-5">
-              Use this room as a workflow: start with the recommended feature, then move through the records below when a result suggests the next question.
-            </p>
-          </section>
+          </div>
         </div>
 
-        <section className="pv-panel atlas-rise" style={{ '--i': 2 }}>
-          <p className="pv-panel-label">Feature workflow</p>
-          <div className="space-y-px">
+        <div className="pv-room-lottie">
+          <LottiePlayer src={ROOM_LOTTIES[roomId]} className="w-full h-full" />
+          <span>{room.code} / instrument active</span>
+        </div>
+      </section>
+
+      <section className="pv-feature-path max-w-6xl">
+        <div className="pv-section-intro">
+          <p>Continue through the room</p>
+          <h2>Follow the next interesting signal.</h2>
+        </div>
+          <div className="pv-feature-list">
             {room.features.map(([label, to, desc, state], i) => (
               <Link
                 key={to}
                 to={to}
                 state={state}
-                className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-4 items-center py-3 px-2 rounded-lg border-b border-[var(--hairline)] last:border-0 hover:bg-white/[0.04] group"
+                className="pv-feature-entry group"
               >
-                <span className="font-mono text-xs text-[var(--text-low)]">{String(i + 1).padStart(2, '0')}</span>
+                <span>{String(i + 1).padStart(2, '0')}</span>
                 <div className="min-w-0">
-                  <p className="text-[var(--text-hi)] text-sm font-medium">{label}</p>
-                  <p className="text-[var(--text-low)] text-xs">{desc}</p>
+                  <h3>{label}</h3>
+                  <p>{desc}</p>
                 </div>
                 <ArrowUpRight size={15} style={{ color: room.accent }} className="opacity-60 group-hover:opacity-100" />
               </Link>
             ))}
           </div>
-        </section>
-      </div>
+      </section>
     </div>
   )
 }
