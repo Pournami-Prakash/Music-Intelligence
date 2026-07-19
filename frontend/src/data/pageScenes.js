@@ -37,3 +37,10 @@ export const PAGE_SCENES = {
 export function getPageScene(pathname) {
   return PAGE_SCENES[pathname] || ['lost', 'ERR / 404', 'unmapped signal', '#FF5C8A']
 }
+
+// Named accessor — prefer this over positional scene[0]/scene[3] so callers
+// don't break silently if the tuple order ever changes.
+export function getScene(pathname) {
+  const [key, code, label, accent] = getPageScene(pathname)
+  return { key, code, label, accent }
+}

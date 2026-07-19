@@ -4,6 +4,7 @@ import LottiePlayer from '../components/LottiePlayer'
 import TrackAutocomplete from '../components/TrackAutocomplete'
 import { CountUp, SpinningRecord } from '../components/Observatory'
 import { PvPage, PvTop, PvHero, PvChips, PvPanel } from '../components/Premium'
+import { ErrorSignal } from '../components/SignalState'
 import { errorMessage, getJson, getExample } from '../lib/api'
 
 const ACCENT = '#5AC8FA'
@@ -13,6 +14,7 @@ export default function SongPassport() {
   const [query, setQuery] = useState('')
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const location = useLocation()
 
   useEffect(() => {
@@ -24,9 +26,10 @@ export default function SongPassport() {
     if (!q?.trim()) return
     setLoading(true)
     setResult(null)
+    setError(null)
     try {
-      const data = (await getExample('song-passport-examples.json', q))
-        || await getJson(`/api/song-passport/${encodeURIComponent(q)}`)
+      const snapshot = await getExample('song-passport-examples.json', q)
+      const data = snapshot || await getJson(`/api/song-passport/${encodeURIComponent(q)}`)
       setResult({
         title: data.title,
         artist: data.artist,
@@ -37,9 +40,10 @@ export default function SongPassport() {
         listens: data.lb_listen_count,
         isrc: data.isrc,
         version_note: data.version_note,
+        _snapshot: !!snapshot,
       })
     } catch (e) {
-      setResult({ title: q, artist: 'Unknown', playlists: 0, pct: 0, genres: [], top_playlist_names: [], _demo: true, _error: errorMessage(e) })
+      setError(errorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -68,7 +72,13 @@ export default function SongPassport() {
           </div>
         )}
 
-        {!result && !loading && (
+        {error && !loading && (
+          <ErrorSignal detail={error} onRetry={() => search(query)}>
+            We couldn’t stamp this track’s passport.
+          </ErrorSignal>
+        )}
+
+        {!result && !loading && !error && (
           <div className="pv-panel grid place-items-center" style={{ minHeight: 300 }}>
             <div className="text-center max-w-md">
               <LottiePlayer src="/assets/vinyl-loading.json" className="w-36 h-36 mx-auto" />
@@ -77,9 +87,9 @@ export default function SongPassport() {
           </div>
         )}
 
-        {result && !loading && (
+        {result && !loading && !error && (
           <div className="space-y-4">
-            {result._demo && <p className="text-xs text-[var(--warning)]">Sample data — {result._error || 'live endpoint unavailable'}.</p>}
+            {result._snapshot && <p className="atlas-coverage-note">Cached result from the same full-data query, shown instantly while the free demo host wakes up.</p>}
             <div className="grid grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)] gap-4 items-start">
               <PvPanel label="Track artifact" className="atlas-rise" style={{ '--i': 0 }}>
                 <SpinningRecord label={result.title} sub={result.artist} accent={ACCENT} />

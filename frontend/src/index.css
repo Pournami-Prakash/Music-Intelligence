@@ -1296,6 +1296,20 @@
     z-index: 2;
   }
 
+  /* Route change: content resolves into focus (blur→sharp + rise), echoing the
+     signal/observatory theme. Replayed via a class toggle on navigation. */
+  @keyframes atlasRouteEnter {
+    from { opacity: 0; transform: translate3d(0, 16px, 0); filter: blur(7px); }
+    60%  { opacity: 1; }
+    to   { opacity: 1; transform: none; filter: blur(0); }
+  }
+  .atlas-route-content.atlas-route-enter {
+    animation: atlasRouteEnter 0.52s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .atlas-route-content.atlas-route-enter { animation: none; }
+  }
+
   .atlas-route-content > .pv {
     --accent: var(--route-accent);
     --accent-hover: color-mix(in srgb, var(--route-accent) 84%, #f2eee5 16%);
@@ -1575,7 +1589,7 @@
     position: relative;
     z-index: 3;
     max-width: 1180px;
-    margin-bottom: clamp(48px, 7vw, 92px);
+    margin-bottom: clamp(24px, 3vw, 42px);
     padding-bottom: 13px;
     border-bottom: 1px solid color-mix(in srgb, var(--route-accent) 30%, rgba(255,255,255,.08));
   }
@@ -1595,7 +1609,7 @@
     position: relative;
     z-index: 2;
     max-width: min(900px, 92%);
-    min-height: clamp(190px, 23vw, 280px);
+    min-height: clamp(150px, 18vw, 220px);
     margin: 0 auto clamp(8px, 1vw, 18px);
     text-align: center;
   }
@@ -1615,7 +1629,7 @@
   .atlas-main .pv-hero h1 {
     max-width: 940px;
     font-family: 'Archivo Narrow', sans-serif;
-    font-size: clamp(54px, 8vw, 108px);
+    font-size: clamp(50px, 7vw, 92px);
     line-height: .84;
     letter-spacing: -.055em;
     text-transform: uppercase;
@@ -1736,7 +1750,7 @@
   @media (max-width: 700px) {
     .atlas-route-stamp { display: none; }
     .atlas-motif { top: 130px; right: -190px; width: 400px; height: 340px; opacity: .2; }
-    .atlas-main .pv-top { margin-bottom: 52px; padding-left: 44px; }
+    .atlas-main .pv-top { margin-bottom: 30px; padding-left: 44px; }
     .atlas-main .pv-top .pv-brand { max-width: 58%; }
     .atlas-main .pv-hero { max-width: 100%; min-height: 220px; }
     .atlas-main .pv-hero h1 { font-size: clamp(50px, 17vw, 76px); }
@@ -1880,8 +1894,8 @@
     display: grid;
     grid-template-columns: minmax(0, 1.18fr) minmax(320px, .82fr);
     align-items: center;
-    gap: clamp(34px, 6vw, 96px);
-    min-height: clamp(560px, 72vh, 780px);
+    gap: clamp(24px, 4vw, 64px);
+    min-height: clamp(460px, 60vh, 640px);
     border-bottom: 1px solid color-mix(in srgb, var(--accent) 34%, rgba(255,255,255,.1));
   }
 
@@ -1889,7 +1903,7 @@
   .pv-room-stage-copy {
     position: relative;
     z-index: 2;
-    padding: clamp(28px, 5vw, 72px) 0;
+    padding: clamp(18px, 3vw, 40px) 0;
     text-align: center;
   }
 
@@ -1897,10 +1911,10 @@
   .pv-room-stage-copy h1 {
     color: var(--text-hi);
     font-family: 'Archivo Narrow', sans-serif;
-    font-size: clamp(70px, 9.2vw, 142px);
+    font-size: clamp(60px, 7vw, 108px);
     font-weight: 800;
     letter-spacing: -.06em;
-    line-height: .77;
+    line-height: .82;
     text-transform: uppercase;
   }
 
@@ -1909,7 +1923,7 @@
   .pv-home-deck,
   .pv-room-stage-copy > p:not(.pv-eyebrow) {
     max-width: 610px;
-    margin: 28px auto 0;
+    margin: 20px auto 0;
     color: rgba(232,234,228,.72);
     font-size: clamp(16px, 1.6vw, 20px);
     line-height: 1.55;
@@ -1917,7 +1931,7 @@
   }
 
   .pv-home-copy .pv-search {
-    margin: 34px auto 0;
+    margin: 24px auto 0;
     margin-bottom: 0;
   }
 
@@ -1925,7 +1939,7 @@
   .pv-room-lottie {
     position: relative;
     align-self: stretch;
-    min-height: 500px;
+    min-height: 400px;
     display: grid;
     place-items: center;
     overflow: hidden;
@@ -1933,10 +1947,10 @@
 
   .pv-home-lottie .atlas-lottie,
   .pv-room-lottie .atlas-lottie {
-    width: min(48vw, 620px) !important;
-    height: min(48vw, 620px) !important;
+    width: min(40vw, 520px) !important;
+    height: min(40vw, 520px) !important;
     opacity: .92;
-    transform: scale(1.08);
+    transform: scale(1);
   }
 
   .pv-home-lottie::after,
@@ -1996,7 +2010,7 @@
 
   .pv-section-intro {
     max-width: 920px;
-    margin: clamp(90px, 13vw, 170px) auto clamp(38px, 6vw, 72px);
+    margin: clamp(56px, 7vw, 96px) auto clamp(24px, 3vw, 40px);
     text-align: center;
   }
   .pv-section-intro > p {
@@ -2011,7 +2025,7 @@
   .pv-section-intro h2 {
     color: var(--text-hi);
     font-family: 'Archivo Narrow', sans-serif;
-    font-size: clamp(48px, 7vw, 92px);
+    font-size: clamp(42px, 5.5vw, 72px);
     font-weight: 800;
     letter-spacing: -.05em;
     line-height: .88;
@@ -2026,6 +2040,7 @@
     position: relative;
     display: grid;
     grid-template-columns: 54px minmax(180px, .72fr) minmax(240px, 1fr) minmax(150px, .48fr) 24px;
+    grid-template-areas: 'number title description signals arrow';
     gap: clamp(16px, 3vw, 42px);
     align-items: center;
     min-height: 154px;
@@ -2039,12 +2054,14 @@
     padding-left: 22px;
     background: linear-gradient(90deg, color-mix(in srgb, var(--rc) 10%, transparent), transparent 68%);
   }
-  .pv-room-entry .pv-card-arrow { position: static; justify-self: end; color: var(--rc); }
+  .pv-room-entry .pv-card-arrow { grid-area: arrow; position: static; justify-self: end; color: var(--rc); }
   .pv-room-number {
+    grid-area: number;
     color: color-mix(in srgb, var(--rc) 78%, #d9ddd6 22%);
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
   }
+  .pv-room-entry > div:not(.pv-room-signals) { grid-area: title; min-width: 0; }
   .pv-room-entry h3 {
     margin-top: 6px;
     color: var(--text-hi);
@@ -2055,8 +2072,8 @@
     line-height: .9;
     text-transform: uppercase;
   }
-  .pv-room-entry > p { color: var(--text-mid); font-size: 14px; line-height: 1.55; }
-  .pv-room-signals { display: grid; gap: 5px; }
+  .pv-room-entry > p { grid-area: description; color: var(--text-mid); font-size: 14px; line-height: 1.55; }
+  .pv-room-signals { grid-area: signals; display: grid; gap: 5px; }
   .pv-room-signals span {
     color: var(--text-low);
     font-family: 'JetBrains Mono', monospace;
@@ -2083,7 +2100,7 @@
     text-decoration: none;
   }
 
-  .pv-room-stage-copy h1 { font-size: clamp(74px, 9vw, 134px); }
+  .pv-room-stage-copy h1 { font-size: clamp(60px, 7vw, 108px); }
   .pv-room-signal-line {
     display: flex;
     flex-wrap: wrap;
@@ -2104,7 +2121,7 @@
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: end;
     gap: 4px 18px;
-    margin: 48px auto 0;
+    margin: 32px auto 0;
     padding-top: 18px;
     border-top: 1px solid color-mix(in srgb, var(--accent) 38%, var(--hairline));
   }
@@ -2112,7 +2129,7 @@
   .pv-room-primary strong { grid-column: 1; color: var(--text-hi); font-size: 20px; }
   .pv-room-primary a { grid-column: 2; grid-row: 1 / 3; border-radius: 0; }
 
-  .pv-feature-path { margin-top: clamp(80px, 12vw, 160px); }
+  .pv-feature-path { margin-top: clamp(52px, 7vw, 92px); }
   .pv-feature-entry {
     display: grid;
     grid-template-columns: 54px minmax(0, 1fr) auto;
@@ -2132,7 +2149,7 @@
 
   /* Lottie-led operational states: a scene, not another dashboard card. */
   .atlas-main .pv-panel:has(.atlas-lottie) {
-    min-height: clamp(420px, 56vh, 620px) !important;
+    min-height: clamp(320px, 42vh, 480px) !important;
     display: grid;
     place-items: center;
     border-width: 1px 0;
@@ -2149,13 +2166,16 @@
   @media (max-width: 980px) {
     .pv-home-stage,
     .pv-room-stage { grid-template-columns: 1fr; min-height: auto; }
-    .pv-home-lottie,
-    .pv-room-lottie { grid-row: 1; min-height: 360px; }
     .pv-home-copy,
-    .pv-room-stage-copy { grid-row: 2; }
+    .pv-room-stage-copy { grid-row: 1; }
+    .pv-home-lottie,
+    .pv-room-lottie { grid-row: 2; min-height: 300px; }
     .pv-home-lottie .atlas-lottie,
     .pv-room-lottie .atlas-lottie { width: min(80vw, 520px) !important; height: min(80vw, 520px) !important; }
-    .pv-room-entry { grid-template-columns: 42px minmax(160px, .7fr) minmax(220px, 1fr) 24px; }
+    .pv-room-entry {
+      grid-template-columns: 42px minmax(160px, .7fr) minmax(220px, 1fr) 24px;
+      grid-template-areas: 'number title description arrow';
+    }
     .pv-room-signals { display: none; }
   }
 
@@ -2175,8 +2195,13 @@
     .pv-provenance-rail { grid-template-columns: repeat(2, 1fr); }
     .pv-provenance-item:nth-child(2) { border-right: 0; }
     .pv-provenance-item:nth-child(-n+2) { border-bottom: 1px solid var(--hairline); }
-    .pv-section-intro { margin-top: 90px; }
-    .pv-room-entry { grid-template-columns: 34px minmax(0, 1fr) 20px; min-height: 126px; gap: 14px; }
+    .pv-section-intro { margin-top: 60px; }
+    .pv-room-entry {
+      grid-template-columns: 34px minmax(0, 1fr) 20px;
+      grid-template-areas: 'number title arrow';
+      min-height: 112px;
+      gap: 14px;
+    }
     .pv-room-entry > p { display: none; }
     .pv-room-entry h3 { font-size: 34px; }
     .pv-room-primary { grid-template-columns: 1fr; }

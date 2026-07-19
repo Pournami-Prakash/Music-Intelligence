@@ -1,7 +1,7 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import Sidebar from './components/Sidebar'
-import { getPageScene } from './data/pageScenes'
+import { getScene } from './data/pageScenes'
 import { warmBackend } from './lib/api'
 
 const Home = lazy(() => import('./pages/Home'))
@@ -37,8 +37,19 @@ const NotFound = lazy(() => import('./pages/NotFound'))
 function AtlasShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { pathname } = useLocation()
-  const scene = getPageScene(pathname)
+  const scene = getScene(pathname)
+  const routeRef = useRef(null)
   useEffect(() => { warmBackend() }, [])
+  // Replay the route-enter animation on navigation without remounting the
+  // subtree (remounting would re-trigger the lazy Suspense fallback flash).
+  useEffect(() => {
+    const el = routeRef.current
+    if (!el) return
+    el.classList.remove('atlas-route-enter')
+    void el.offsetWidth        // force reflow so the animation restarts
+    el.classList.add('atlas-route-enter')
+    el.scrollTo?.({ top: 0 })
+  }, [pathname])
   return (
       <div className="flex w-full min-h-screen bg-atlas-bg">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
@@ -56,10 +67,10 @@ function AtlasShell() {
         </button>
         <main
           className="atlas-main flex-1 lg:ml-56 min-h-screen overflow-x-hidden"
-          data-atlas-scene={scene[0]}
-          style={{ '--route-accent': scene[3] }}
+          data-atlas-scene={scene.key}
+          style={{ '--route-accent': scene.accent }}
         >
-          <div className="atlas-route-content">
+          <div className="atlas-route-content" ref={routeRef}>
             <Suspense fallback={<div className="min-h-screen grid place-items-center text-atlas-muted" role="status">Opening atlas room…</div>}>
             <Routes>
             <Route path="/" element={<Home />} />
