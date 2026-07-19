@@ -1,62 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import {
-  Archive,
-  ArrowLeftRight,
-  BarChart2,
-  BookOpen,
-  Clock,
-  CloudRain,
-  Compass,
-  Copy,
-  Flame,
-  Gauge,
-  Gift,
-  GitBranch,
-  Globe,
-  Heart,
-  Home,
-  MapPin,
-  Network,
-  Search,
-  Shuffle,
-  Star,
-  Swords,
-  TrendingUp,
-  Trophy,
-  Type,
-  Wand2,
-  Zap,
-} from 'lucide-react'
 import { ROOM_ORDER, ROOMS } from '../data/rooms'
-
-const ICONS = {
-  Archive,
-  ArrowLeftRight,
-  BarChart2,
-  BookOpen,
-  Clock,
-  CloudRain,
-  Compass,
-  Copy,
-  Flame,
-  Gauge,
-  Gift,
-  GitBranch,
-  Globe,
-  Heart,
-  Home,
-  MapPin,
-  Network,
-  Search,
-  Shuffle,
-  Star,
-  Swords,
-  TrendingUp,
-  Trophy,
-  Type,
-  Wand2,
-  Zap,
-}
+import { ICONS } from '../lib/icons'
 
 function NavItem({ to, icon, label, onClose }) {
   const Icon = ICONS[icon] || Compass

@@ -1,0 +1,63 @@
+// Shared string→component map for the lucide icons referenced by name in
+// src/data/rooms.js. Kept in one place so Sidebar and RoomPage stay in sync.
+import {
+  Archive,
+  ArrowLeftRight,
+  BarChart2,
+  BookOpen,
+  Clock,
+  CloudRain,
+  Compass,
+  Copy,
+  Flame,
+  Gauge,
+  Gift,
+  GitBranch,
+  Globe,
+  Heart,
+  Home,
+  MapPin,
+  Network,
+  Search,
+  Shuffle,
+  Star,
+  Swords,
+  TrendingUp,
+  Trophy,
+  Type,
+  Wand2,
+  Zap,
+} from 'lucide-react'
+
+export const ICONS = {
+  Archive,
+  ArrowLeftRight,
+  BarChart2,
+  BookOpen,
+  Clock,
+  CloudRain,
+  Compass,
+  Copy,
+  Flame,
+  Gauge,
+  Gift,
+  GitBranch,
+  Globe,
+  Heart,
+  Home,
+  MapPin,
+  Network,
+  Search,
+  Shuffle,
+  Star,
+  Swords,
+  TrendingUp,
+  Trophy,
+  Type,
+  Wand2,
+  Zap,
+}
+
+export function iconFor(name, fallback = Compass) {
+  return ICONS[name] || fallback
+}
