@@ -15,11 +15,9 @@
   body {
     min-height: 100svh;
     background:
-      radial-gradient(ellipse at 14% -8%, rgba(83, 224, 118, 0.07), transparent 32rem),
-      linear-gradient(90deg, rgba(255,255,255,0.026) 1px, transparent 1px),
-      linear-gradient(180deg, rgba(255,255,255,0.018) 1px, transparent 1px),
-      linear-gradient(180deg, var(--atlas-surface) 0%, #080808 72%);
-    background-size: auto, 64px 64px, 64px 64px, auto;
+      radial-gradient(ellipse at 14% -8%, rgba(83, 224, 118, 0.09), transparent 34rem),
+      radial-gradient(ellipse at 92% 18%, rgba(196, 132, 252, 0.045), transparent 38rem),
+      linear-gradient(145deg, #121512 0%, var(--atlas-surface) 32%, #070807 100%);
     color: var(--atlas-text);
     font-family: Inter, sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -292,11 +290,9 @@
     padding: clamp(18px, 2.6vw, 34px) clamp(18px, 2.6vw, 34px) clamp(42px, 5vw, 62px);
     color: #f3f0e8;
     background:
-      linear-gradient(90deg, rgba(255,255,255,0.033) 1px, transparent 1px),
-      linear-gradient(180deg, rgba(255,255,255,0.026) 1px, transparent 1px),
-      radial-gradient(ellipse at 18% 0%, color-mix(in srgb, var(--accent) 5%, transparent), transparent 30rem),
-      linear-gradient(180deg, #101110 0%, #070707 74%);
-    background-size: 56px 56px, 56px 56px, auto, auto;
+      radial-gradient(ellipse at 18% 0%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 34rem),
+      radial-gradient(ellipse at 104% 56%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 42rem),
+      linear-gradient(155deg, #111411 0%, #070807 76%);
   }
 
   .dossier-ambient-strip {
@@ -675,11 +671,9 @@
     overflow: hidden;
     border: 1px solid color-mix(in srgb, var(--accent) 34%, rgba(134,149,133,0.18));
     background:
-      linear-gradient(90deg, rgba(255,255,255,0.038) 1px, transparent 1px),
-      linear-gradient(180deg, rgba(255,255,255,0.03) 1px, transparent 1px),
-      radial-gradient(ellipse at 52% 46%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 24rem),
+      radial-gradient(ellipse at 52% 46%, color-mix(in srgb, var(--accent) 15%, transparent), transparent 25rem),
+      linear-gradient(128deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 42%),
       rgba(12,12,11,0.93);
-    background-size: 54px 54px, 54px 54px, auto, auto;
   }
 
   .dossier-stage::after {
@@ -1284,11 +1278,39 @@
     position: relative;
     isolation: isolate;
     background:
-      linear-gradient(90deg, color-mix(in srgb, var(--route-accent) 5%, transparent) 1px, transparent 1px),
-      linear-gradient(180deg, rgba(232, 238, 230, 0.025) 1px, transparent 1px),
-      radial-gradient(54rem 34rem at 78% 2%, color-mix(in srgb, var(--route-accent) 10%, transparent), transparent 68%),
-      #090b0a;
-    background-size: 72px 72px, 72px 72px, auto, auto;
+      radial-gradient(54rem 38rem at 82% -4%, color-mix(in srgb, var(--route-accent) 17%, transparent), transparent 70%),
+      radial-gradient(42rem 48rem at -8% 88%, color-mix(in srgb, var(--route-accent) 7%, transparent), transparent 72%),
+      linear-gradient(145deg, #0b0e0c 0%, #080a09 52%, color-mix(in srgb, var(--route-accent) 4%, #070807) 100%);
+  }
+
+  .atlas-main::before,
+  .atlas-main::after {
+    content: '';
+    position: absolute;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .atlas-main::before {
+    width: min(78vw, 980px);
+    aspect-ratio: 1.22;
+    right: -28%;
+    top: clamp(80px, 12vw, 160px);
+    border-radius: 50%;
+    background: radial-gradient(circle at 50%,
+      color-mix(in srgb, var(--route-accent) 16%, transparent) 0,
+      color-mix(in srgb, var(--route-accent) 7%, transparent) 34%,
+      transparent 70%);
+    transform: rotate(-12deg);
+  }
+
+  .atlas-main::after {
+    inset: 0;
+    opacity: .18;
+    background: linear-gradient(112deg,
+      transparent 0 56%,
+      color-mix(in srgb, var(--route-accent) 9%, transparent) 56% 68%,
+      transparent 68%);
   }
 
   .atlas-route-content {
@@ -1735,6 +1757,131 @@
     font-size: clamp(68px, 10.5vw, 142px);
   }
 
+  /* ── Six rooms, six compositions ───────────────────────────────────────
+     The chassis stays consistent; scale, alignment and surface treatment do
+     not. These family rules keep related tools coherent without making every
+     route feel like the same centered dashboard. */
+  .atlas-main:not([data-atlas-family='atlas']) .pv-hero {
+    min-height: clamp(190px, 24vw, 320px);
+    padding-top: clamp(18px, 3vw, 42px);
+  }
+
+  /* Deep Map: a left-anchored survey sheet with open territory to the right. */
+  .atlas-main[data-atlas-family='cartography'] {
+    background:
+      radial-gradient(ellipse at 88% 24%, color-mix(in srgb, var(--route-accent) 22%, transparent), transparent 42rem),
+      radial-gradient(ellipse at 4% 88%, color-mix(in srgb, var(--route-accent) 8%, transparent), transparent 36rem),
+      linear-gradient(145deg, #0a0e0b, #070907 72%);
+  }
+  .atlas-main[data-atlas-family='cartography'] .pv-hero {
+    max-width: min(720px, 64%) !important;
+    margin-left: 0;
+    text-align: left;
+  }
+  .atlas-main[data-atlas-family='cartography'] .pv-hero h1,
+  .atlas-main[data-atlas-family='cartography'] .pv-hero p { text-align: left; margin-left: 0; }
+  .atlas-main[data-atlas-family='cartography'] .pv-hero h1 { font-size: clamp(62px, 8vw, 112px); }
+  .atlas-main[data-atlas-family='cartography'] .pv-panel {
+    clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%);
+    background-image:
+      linear-gradient(135deg, color-mix(in srgb, var(--route-accent) 8%, transparent), transparent 42%),
+      repeating-radial-gradient(circle at 100% 0, transparent 0 24px, color-mix(in srgb, var(--route-accent) 8%, transparent) 25px 26px),
+      linear-gradient(rgba(15,18,16,.94), rgba(15,18,16,.94));
+  }
+
+  /* Observatory: right-aligned readout, as if data is arriving from orbit. */
+  .atlas-main[data-atlas-family='observatory'] .pv-hero {
+    max-width: min(760px, 68%) !important;
+    margin-right: 0;
+    text-align: right;
+  }
+  .atlas-main[data-atlas-family='observatory'] .pv-hero h1,
+  .atlas-main[data-atlas-family='observatory'] .pv-hero p { text-align: right; margin-right: 0; margin-left: auto; }
+  .atlas-main[data-atlas-family='observatory'] .pv-search { margin-left: auto; margin-right: 0; }
+  .atlas-main[data-atlas-family='observatory'] .pv-chips { justify-content: flex-end; }
+  .atlas-main[data-atlas-family='observatory'] .pv-panel {
+    border-radius: 999px 2px 2px 999px;
+    padding-left: clamp(28px, 4vw, 58px);
+  }
+  .atlas-main[data-atlas-family='observatory'] .pv-panel:has(.atlas-lottie) { border-radius: 0; }
+
+  /* Song World: passport/sleeve proportions and ruled-paper texture. */
+  .atlas-main[data-atlas-family='song'] .pv-hero {
+    max-width: min(820px, 76%) !important;
+    margin-left: 4%;
+    text-align: left;
+    transform: rotate(-1deg);
+  }
+  .atlas-main[data-atlas-family='song'] .pv-hero h1,
+  .atlas-main[data-atlas-family='song'] .pv-hero p { text-align: left; margin-left: 0; }
+  .atlas-main[data-atlas-family='song'] .pv-panel {
+    border-width: 1px 1px 1px 6px;
+    border-left-color: var(--route-accent);
+    background:
+      repeating-linear-gradient(0deg, transparent 0 31px, color-mix(in srgb, var(--route-accent) 7%, transparent) 31px 32px),
+      rgba(17,18,19,.94);
+  }
+
+  /* Vibe Dictionary: editorial type is the artifact; containers recede. */
+  .atlas-main[data-atlas-family='lexicon'] .pv-hero {
+    max-width: min(920px, 82%) !important;
+    margin-left: 0;
+    text-align: left;
+  }
+  .atlas-main[data-atlas-family='lexicon'] .pv-hero h1,
+  .atlas-main[data-atlas-family='lexicon'] .pv-hero p { text-align: left; margin-left: 0; }
+  .atlas-main[data-atlas-family='lexicon'] .pv-hero h1 {
+    font-size: clamp(72px, 11vw, 152px);
+    line-height: .76;
+    letter-spacing: -.065em;
+  }
+  .atlas-main[data-atlas-family='lexicon'] .pv-panel {
+    border-width: 1px 0;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--route-accent) 8%, transparent), transparent 72%);
+  }
+
+  /* Taste Tunnel: diagonal momentum and clipped graph surfaces. */
+  .atlas-main[data-atlas-family='graph'] .pv-hero {
+    max-width: min(860px, 74%) !important;
+    margin-left: 7%;
+    text-align: left;
+  }
+  .atlas-main[data-atlas-family='graph'] .pv-hero h1,
+  .atlas-main[data-atlas-family='graph'] .pv-hero p { text-align: left; margin-left: 0; }
+  .atlas-main[data-atlas-family='graph'] .pv-panel {
+    clip-path: polygon(20px 0, 100% 0, calc(100% - 20px) 100%, 0 100%);
+    padding-inline: clamp(28px, 4vw, 52px);
+    background:
+      linear-gradient(116deg, transparent 0 47%, color-mix(in srgb, var(--route-accent) 11%, transparent) 48% 49%, transparent 50%),
+      rgba(16,16,18,.94);
+  }
+
+  /* Drop Archive: dense, left-aligned catalogue with paper-ledger rhythm. */
+  .atlas-main[data-atlas-family='archive'] {
+    background:
+      radial-gradient(ellipse at 92% 14%, color-mix(in srgb, var(--route-accent) 14%, transparent), transparent 40rem),
+      linear-gradient(90deg, color-mix(in srgb, var(--route-accent) 4%, #090a09), #070807 76%);
+  }
+  .atlas-main[data-atlas-family='archive'] .pv-hero {
+    max-width: min(680px, 62%) !important;
+    min-height: 190px;
+    margin-left: 0;
+    text-align: left;
+    border-bottom: 3px double color-mix(in srgb, var(--route-accent) 54%, transparent);
+  }
+  .atlas-main[data-atlas-family='archive'] .pv-hero h1,
+  .atlas-main[data-atlas-family='archive'] .pv-hero p { text-align: left; margin-left: 0; }
+  .atlas-main[data-atlas-family='archive'] .pv-hero h1 {
+    font-size: clamp(52px, 6.6vw, 88px);
+    letter-spacing: -.025em;
+  }
+  .atlas-main[data-atlas-family='archive'] .pv-panel {
+    border-radius: 0;
+    background:
+      repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0 1px, transparent 1px 32px),
+      rgba(15,16,16,.96);
+  }
+
   @media (min-width: 900px) {
     .atlas-main[data-atlas-scene='atlas'] .pv-card:first-child,
     .atlas-main[data-atlas-scene='atlas'] .pv-card:nth-child(5) { grid-column: span 2; }
@@ -1757,6 +1904,25 @@
     .atlas-main .pv-search { grid-template-columns: 1fr; border-radius: 0; box-shadow: 7px 7px 0 color-mix(in srgb, var(--route-accent) 6%, transparent); }
     .atlas-main .pv-search button { min-height: 46px; }
     .atlas-main .pv-stat { min-height: 104px; padding: 16px; }
+    .atlas-main:not([data-atlas-family='atlas']) .pv-hero,
+    .atlas-main[data-atlas-family='cartography'] .pv-hero,
+    .atlas-main[data-atlas-family='observatory'] .pv-hero,
+    .atlas-main[data-atlas-family='song'] .pv-hero,
+    .atlas-main[data-atlas-family='lexicon'] .pv-hero,
+    .atlas-main[data-atlas-family='graph'] .pv-hero,
+    .atlas-main[data-atlas-family='archive'] .pv-hero {
+      max-width: 100% !important;
+      min-height: auto;
+      margin-inline: 0;
+      text-align: left;
+      transform: none;
+    }
+    .atlas-main:not([data-atlas-family='atlas']) .pv-hero h1,
+    .atlas-main:not([data-atlas-family='atlas']) .pv-hero p { text-align: left; margin-left: 0; margin-right: 0; }
+    .atlas-main[data-atlas-family='lexicon'] .pv-hero h1 { font-size: clamp(58px, 18vw, 78px); }
+    .atlas-main[data-atlas-family='observatory'] .pv-search { margin-inline: 0; }
+    .atlas-main[data-atlas-family='observatory'] .pv-chips { justify-content: flex-start; }
+    .atlas-main[data-atlas-family='observatory'] .pv-panel { border-radius: 28px 2px 2px 28px; padding-left: 24px; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -1943,6 +2109,56 @@
     display: grid;
     place-items: center;
     overflow: hidden;
+  }
+
+  /* Home signature: the corpus resolves like a calibrated observatory scan.
+     Motion drives only transforms/opacity; the static rings remain meaningful
+     when animation is disabled. */
+  .pv-home-lottie { isolation: isolate; }
+  .pv-home-lottie .atlas-lottie { position: relative; z-index: 2; }
+  .pv-orbit-guide {
+    position: absolute;
+    inset: 12%;
+    z-index: 1;
+    border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  .pv-orbit-guide::before,
+  .pv-orbit-guide::after,
+  .pv-orbit-guide i {
+    content: '';
+    position: absolute;
+    border: 1px solid color-mix(in srgb, var(--accent) 16%, transparent);
+    border-radius: 50%;
+  }
+  .pv-orbit-guide::before { inset: 13%; }
+  .pv-orbit-guide::after { inset: 32%; }
+  .pv-orbit-guide i:nth-child(1) { inset: 49% -8%; border-radius: 0; border-width: 1px 0 0; }
+  .pv-orbit-guide i:nth-child(2) { inset: -8% 49%; border-radius: 0; border-width: 0 0 0 1px; }
+  .pv-orbit-guide i:nth-child(3) {
+    width: 7px;
+    height: 7px;
+    left: 19%;
+    top: 24%;
+    border: 0;
+    background: var(--accent);
+    box-shadow: 0 0 0 7px color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+  .pv-signal-sweep {
+    position: absolute;
+    inset: 4% auto 4% 0;
+    z-index: 3;
+    width: 42%;
+    border-right: 1px solid color-mix(in srgb, var(--accent) 72%, transparent);
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 7%, transparent));
+    pointer-events: none;
+    transform: translateX(-115%);
+  }
+
+  .pv-home[data-motion-ready='true'] [data-motion-intro],
+  .pv-home[data-motion-ready='true'] [data-motion-reveal] {
+    opacity: 0;
   }
 
   .pv-home-lottie .atlas-lottie,
@@ -2223,6 +2439,29 @@
     padding-left: 22px;
     background: linear-gradient(90deg, color-mix(in srgb, var(--rc) 10%, transparent), transparent 68%);
   }
+  .pv-room-entry::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 2px;
+    background: var(--rc);
+    transform: scaleY(0);
+    transform-origin: center;
+    transition: transform 260ms cubic-bezier(.22, 1, .36, 1);
+  }
+  .pv-room-entry:hover::before,
+  .pv-room-entry:focus-visible::before { transform: scaleY(1); }
+  .pv-room-entry .pv-room-number,
+  .pv-room-entry h3,
+  .pv-room-entry .pv-card-arrow {
+    transition: transform 260ms cubic-bezier(.22, 1, .36, 1), color 200ms ease;
+  }
+  .pv-room-entry:hover .pv-room-number,
+  .pv-room-entry:focus-visible .pv-room-number { transform: translateX(4px); }
+  .pv-room-entry:hover h3,
+  .pv-room-entry:focus-visible h3 { transform: translateX(3px); }
+  .pv-room-entry:hover .pv-card-arrow,
+  .pv-room-entry:focus-visible .pv-card-arrow { transform: translate(3px, -3px); }
   .pv-room-entry .pv-card-arrow { grid-area: arrow; position: static; justify-self: end; color: var(--rc); }
   .pv-room-number {
     grid-area: number;
@@ -2267,7 +2506,26 @@
     color: inherit;
     background: #0d0f0e;
     text-decoration: none;
+    overflow: hidden;
+    transition: background-color 220ms ease, transform 220ms cubic-bezier(.22, 1, .36, 1);
   }
+  .pv-fast-entry::before {
+    content: '';
+    position: absolute;
+    inset: auto 0 0;
+    height: 2px;
+    background: var(--rc);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 260ms cubic-bezier(.22, 1, .36, 1);
+  }
+  .pv-fast-entry:hover,
+  .pv-fast-entry:focus-visible {
+    background: color-mix(in srgb, var(--rc) 7%, #0d0f0e);
+    transform: translateY(-2px);
+  }
+  .pv-fast-entry:hover::before,
+  .pv-fast-entry:focus-visible::before { transform: scaleX(1); }
 
   .pv-room-stage-copy h1 { font-size: clamp(60px, 7vw, 108px); }
   .pv-room-signal-line {
@@ -2376,5 +2634,18 @@
     .pv-room-primary { grid-template-columns: 1fr; }
     .pv-room-primary a { grid-column: 1; grid-row: auto; margin-top: 12px; }
     .pv-feature-entry { grid-template-columns: 34px minmax(0, 1fr) auto; gap: 12px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pv-home[data-motion-ready='true'] [data-motion-intro],
+    .pv-home[data-motion-ready='true'] [data-motion-reveal] { opacity: 1; }
+    .pv-signal-sweep { display: none; }
+    .pv-room-entry,
+    .pv-room-entry::before,
+    .pv-room-entry .pv-room-number,
+    .pv-room-entry h3,
+    .pv-room-entry .pv-card-arrow,
+    .pv-fast-entry,
+    .pv-fast-entry::before { transition: none !important; }
   }
 }

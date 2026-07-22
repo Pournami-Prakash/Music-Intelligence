@@ -34,10 +34,44 @@ const PlaylistNameGenerator = lazy(() => import('./pages/PlaylistNameGenerator')
 const RoomPage = lazy(() => import('./pages/RoomPage'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 
+const SCENE_FAMILIES = {
+  MAP: 'cartography',
+  OBS: 'observatory',
+  SPT: 'song',
+  LEX: 'lexicon',
+  TNL: 'graph',
+  DRP: 'archive',
+  ATLAS: 'atlas',
+  ERR: 'lost',
+}
+
+function RouteAtmosphere({ scene }) {
+  return (
+    <div className="atlas-atmosphere" data-motif={scene.key} aria-hidden="true">
+      <div className="atlas-route-stamp">
+        <span>{scene.code}</span>
+        <small>{scene.label}</small>
+      </div>
+      <div className="atlas-motif">
+        <i className="atlas-shape atlas-shape-a" />
+        <i className="atlas-shape atlas-shape-b" />
+        <i className="atlas-shape atlas-shape-c" />
+        <i className="atlas-shape atlas-shape-d" />
+      </div>
+      <div className="atlas-coordinate-rail">
+        <span>playlist corpus</span>
+        <span>66.3m relations</span>
+        <span>live instrument</span>
+      </div>
+    </div>
+  )
+}
+
 function AtlasShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { pathname } = useLocation()
   const scene = getScene(pathname)
+  const family = SCENE_FAMILIES[scene.code.split(' /')[0]] || 'lost'
   const routeRef = useRef(null)
   useEffect(() => { warmBackend() }, [])
   // Replay the route-enter animation on navigation without remounting the
@@ -68,8 +102,10 @@ function AtlasShell() {
         <main
           className="atlas-main flex-1 lg:ml-56 min-h-screen overflow-x-hidden"
           data-atlas-scene={scene.key}
+          data-atlas-family={family}
           style={{ '--route-accent': scene.accent }}
         >
+          <RouteAtmosphere scene={scene} />
           <div className="atlas-route-content" ref={routeRef}>
             <Suspense fallback={<div className="min-h-screen grid place-items-center text-atlas-muted" role="status">Opening atlas room…</div>}>
             <Routes>
