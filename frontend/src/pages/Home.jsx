@@ -66,7 +66,7 @@ export default function Home() {
                 aria-label="Atlas search"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                placeholder="Try an artist, song, or room…"
+                placeholder="Artist, song, or room…"
               />
             </div>
             <button type="submit" disabled={!query.trim()}>Enter Atlas</button>
