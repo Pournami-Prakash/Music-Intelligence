@@ -4,6 +4,7 @@ import { ArrowRight } from 'lucide-react'
 import LottiePlayer from '../components/LottiePlayer'
 import { CountUp } from '../components/Observatory'
 import { PvPage, PvTop, PvHero } from '../components/Premium'
+import { ErrorSignal } from '../components/SignalState'
 import { errorMessage, getJson } from '../lib/api'
 
 const ACCENT = '#B08CF8'
@@ -18,6 +19,7 @@ export default function SongCollision() {
   const [b, setB] = useState('')
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const location = useLocation()
 
   useEffect(() => {
@@ -29,13 +31,14 @@ export default function SongCollision() {
     if (!av?.trim() || !bv?.trim()) return
     setLoading(true)
     setResult(null)
+    setError(null)
     try {
       const d = await getJson(`/api/collision?a=${encodeURIComponent(av)}&b=${encodeURIComponent(bv)}`)
       const minCount = Math.min(d.a?.playlist_count || 1, d.b?.playlist_count || 1)
       const overlap = Math.min(100, Math.round((d.shared_playlists / (minCount || 1)) * 100))
       setResult({ ...d, overlap })
     } catch (e) {
-      setResult({ a: { name: av }, b: { name: bv }, shared_playlists: 0, bridge_artists: [], overlap: 0, _demo: true, _error: errorMessage(e) })
+      setError(errorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -45,10 +48,10 @@ export default function SongCollision() {
     <PvPage>
       <PvTop sub="Taste Tunnel" pill="Shared playlists" />
       <PvHero eyebrow="Collision report" title={result ? `${result.a.name} + ${result.b.name}` : 'Song Collision'}>
-        Enter two artists and inspect how much of their audience overlaps — and which artists bridge them.
+        Enter two artists and inspect their shared playlist footprint—and which co-occurring artists bridge them.
       </PvHero>
 
-      <form className="pv-search" style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) auto' }} onSubmit={e => { e.preventDefault(); search(a, b) }}>
+      <form className="pv-search pv-search-route" onSubmit={e => { e.preventDefault(); search(a, b) }}>
         <div className="pv-search-field"><input value={a} onChange={e => setA(e.target.value)} placeholder="Artist A…" /></div>
         <div className="pv-search-field"><ArrowRight size={15} className="text-[var(--text-low)] shrink-0" /><input value={b} onChange={e => setB(e.target.value)} placeholder="Artist B…" /></div>
         <button disabled={!a.trim() || !b.trim() || loading}>{loading ? 'Working…' : 'Collide'}</button>
@@ -68,7 +71,7 @@ export default function SongCollision() {
           </div>
         )}
 
-        {!result && !loading && (
+        {!result && !loading && !error && (
           <div className="pv-panel grid place-items-center" style={{ minHeight: 300 }}>
             <div className="text-center max-w-md">
               <LottiePlayer src="/assets/no-data.json" className="w-40 h-40 mx-auto" />
@@ -77,9 +80,9 @@ export default function SongCollision() {
           </div>
         )}
 
-        {result && !loading && (
+        {error && !loading && <ErrorSignal detail={error} onRetry={() => search(a, b)}>We couldn’t calculate this collision.</ErrorSignal>}
+        {result && !loading && !error && (
           <div className="space-y-4">
-            {result._demo && <p className="text-xs text-[var(--warning)]">Sample data — {result._error || 'live endpoint unavailable'}.</p>}
             <div className="grid grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)] gap-4 items-start">
               <div className="pv-panel atlas-rise" style={{ '--i': 0 }}>
                 <p className="pv-panel-label">Shared reach</p>
@@ -117,7 +120,7 @@ export default function SongCollision() {
                         <span className="font-mono text-xs text-[var(--text-low)]">{String(i + 1).padStart(2, '0')}</span>
                         <div className="min-w-0">
                           <p className="text-[var(--text-hi)] text-sm truncate">{br.name}</p>
-                          <p className="text-[var(--text-low)] text-xs">{(br.playlist_count ?? 0).toLocaleString()} playlists</p>
+                          <p className="text-[var(--text-low)] text-xs">{(br.shared_with_a ?? 0).toLocaleString()} / {(br.shared_with_b ?? 0).toLocaleString()} shared edges</p>
                         </div>
                       </div>
                     </Link>

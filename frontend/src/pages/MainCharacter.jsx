@@ -3,17 +3,18 @@ import { Link, useLocation } from 'react-router-dom'
 import LottiePlayer from '../components/LottiePlayer'
 import { CountUp } from '../components/Observatory'
 import { PvPage, PvTop, PvHero, PvSearch, PvChips, PvPanel } from '../components/Premium'
+import { ErrorSignal } from '../components/SignalState'
 import { errorMessage, getJson } from '../lib/api'
 
 const ACCENT = '#B08CF8'
 const SUGGESTIONS = ['Taylor Swift', 'Kendrick Lamar', 'Radiohead', 'Beyoncé', 'Frank Ocean']
 
 const TIERS = [
-  { min: 90, label: 'Undisputed Main Character' },
-  { min: 72, label: 'Strong Protagonist' },
-  { min: 52, label: 'Supporting Lead' },
-  { min: 32, label: 'Ensemble Player' },
-  { min: 0, label: 'Side Character (on purpose)' },
+  { min: 90, label: 'Top-decile reach' },
+  { min: 75, label: 'High playlist reach' },
+  { min: 50, label: 'Above-median reach' },
+  { min: 25, label: 'Focused playlist reach' },
+  { min: 0, label: 'Long-tail reach' },
 ]
 const tierLabel = (s) => (TIERS.find(t => s >= t.min) || TIERS[TIERS.length - 1]).label
 
@@ -35,6 +36,7 @@ export default function MainCharacter() {
   const [query, setQuery] = useState('')
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const location = useLocation()
 
   useEffect(() => {
@@ -46,6 +48,7 @@ export default function MainCharacter() {
     if (!q?.trim()) return
     setLoading(true)
     setResult(null)
+    setError(null)
     try {
       const data = await getJson(`/api/main-character/${encodeURIComponent(q)}`)
       setResult({
@@ -59,7 +62,7 @@ export default function MainCharacter() {
         colony: data.colony || [],
       })
     } catch (e) {
-      setResult({ artist: q, score: 54, percentile: 62, rank: '—', top_tracks: [], colony: [], _demo: true, _error: errorMessage(e) })
+      setError(errorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -67,9 +70,9 @@ export default function MainCharacter() {
 
   return (
     <PvPage>
-      <PvTop sub="Artist Observatory" pill="Archetype score" />
-      <PvHero eyebrow="Persona evidence" title={result?.artist || 'Main Character'}>
-        Score an artist by how central they sit in playlist culture — reach, percentile rank, and the colony of artists in their orbit.
+      <PvTop sub="Artist Observatory" pill="Reach percentile" />
+      <PvHero eyebrow="Playlist reach" title={result?.artist || 'Playlist Reach Score'}>
+        Place an artist in the archive by how many playlists contain them, then inspect their strongest co-occurrence neighbors.
       </PvHero>
 
       <PvSearch value={query} onChange={setQuery} onSubmit={() => search(query)} placeholder="Artist name…" button="Score persona" loading={loading} icon />
@@ -80,31 +83,31 @@ export default function MainCharacter() {
           <div className="pv-panel grid place-items-center" style={{ minHeight: 300 }}>
             <div className="text-center">
               <LottiePlayer src="/assets/trending-upward.lottie" className="w-40 h-40 mx-auto" />
-              <p className="mt-2 text-[var(--text-mid)]">Computing main-character energy…</p>
+              <p className="mt-2 text-[var(--text-mid)]">Calculating playlist-reach percentile…</p>
             </div>
           </div>
         )}
 
-        {!result && !loading && (
+        {!result && !loading && !error && (
           <div className="pv-panel grid place-items-center" style={{ minHeight: 300 }}>
             <div className="text-center max-w-md">
               <LottiePlayer src="/assets/trending-upward.lottie" className="w-32 h-32 mx-auto" />
-              <p className="mt-2 text-[var(--text-mid)]">Search an artist to score their main-character energy.</p>
+              <p className="mt-2 text-[var(--text-mid)]">Search an artist to measure their playlist reach.</p>
             </div>
           </div>
         )}
 
-        {result && !loading && (
+        {error && !loading && <ErrorSignal detail={error} onRetry={() => search(query)}>We couldn’t calculate this artist’s reach percentile.</ErrorSignal>}
+        {result && !loading && !error && (
           <div className="grid grid-cols-1 xl:grid-cols-[340px_minmax(0,1fr)] gap-4 items-start">
             <PvPanel label="Persona file" className="atlas-rise" style={{ '--i': 0 }}>
-              {result._demo && <p className="mb-3 text-xs text-[var(--warning)]">Sample data — {result._error || 'live endpoint unavailable'}.</p>}
               <p className="font-extrabold text-8xl leading-none tracking-[-0.05em]" style={{ color: ACCENT }}>
                 <CountUp value={result.score} />
               </p>
-              <p className="text-[var(--text-low)] text-xs uppercase tracking-[0.16em] mt-1">main-character score / 100</p>
+              <p className="text-[var(--text-low)] text-xs uppercase tracking-[0.16em] mt-1">playlist-reach percentile</p>
               <p className="text-[var(--text-hi)] text-2xl font-bold mt-4">{tierLabel(result.score)}</p>
               <p className="text-[var(--text-mid)] text-xs mt-2 leading-relaxed">
-                The score weighs how often the artist anchors a playlist; reach percentile below ranks raw footprint — they measure different things.
+                This is the artist’s percentile among the 10,000 most-playlisted artists. It does not measure influence or artistic importance.
               </p>
               <div className="grid grid-cols-2 gap-3 mt-4">
                 <div className="pv-cell"><small>Reach percentile</small><strong>{result.percentile != null ? `${Math.round(result.percentile)}th` : '—'}</strong></div>

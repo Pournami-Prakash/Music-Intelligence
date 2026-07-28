@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
+import { animate } from 'motion'
 import Sidebar from './components/Sidebar'
+import SceneCut from './components/SceneCut'
 import { getScene } from './data/pageScenes'
 import { warmBackend } from './lib/api'
 
@@ -52,12 +54,6 @@ function RouteAtmosphere({ scene }) {
         <span>{scene.code}</span>
         <small>{scene.label}</small>
       </div>
-      <div className="atlas-motif">
-        <i className="atlas-shape atlas-shape-a" />
-        <i className="atlas-shape atlas-shape-b" />
-        <i className="atlas-shape atlas-shape-c" />
-        <i className="atlas-shape atlas-shape-d" />
-      </div>
       <div className="atlas-coordinate-rail">
         <span>playlist corpus</span>
         <span>66.3m relations</span>
@@ -73,17 +69,49 @@ function AtlasShell() {
   const scene = getScene(pathname)
   const family = SCENE_FAMILIES[scene.code.split(' /')[0]] || 'lost'
   const routeRef = useRef(null)
+  const mainRef = useRef(null)
   useEffect(() => { warmBackend() }, [])
-  // Replay the route-enter animation on navigation without remounting the
-  // subtree (remounting would re-trigger the lazy Suspense fallback flash).
   useEffect(() => {
     const el = routeRef.current
     if (!el) return
-    el.classList.remove('atlas-route-enter')
-    void el.offsetWidth        // force reflow so the animation restarts
-    el.classList.add('atlas-route-enter')
     el.scrollTo?.({ top: 0 })
-  }, [pathname])
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+    const camera = {
+      cartography: ['translate3d(-8px, 8px, 0) scale(1.008)', '50% 45%'],
+      observatory: ['translate3d(8px, 5px, 0) scale(1.012)', '78% 35%'],
+      song: ['translate3d(-5px, 9px, 0) scale(1.009)', '35% 40%'],
+      lexicon: ['translate3d(0, 10px, 0) scale(1.006)', '30% 30%'],
+      graph: ['translate3d(9px, 6px, 0) scale(1.012)', '65% 50%'],
+      archive: ['translate3d(0, -6px, 0) scale(.995)', '50% 30%'],
+      atlas: ['translate3d(0, 8px, 0) scale(1.009)', '50% 45%'],
+      lost: ['translate3d(0, 6px, 0) scale(.995)', '50% 50%'],
+    }[family]
+
+    const contentMotion = animate(
+      el,
+      {
+        opacity: [0, 1],
+        transform: [camera[0], 'translate3d(0, 0, 0) scale(1)'],
+        filter: ['blur(3px)', 'blur(0px)'],
+      },
+      { duration: 0.48, ease: [0.22, 1, 0.36, 1] },
+    )
+    const atmosphere = mainRef.current?.querySelector('.atlas-atmosphere')
+    const atmosphereMotion = atmosphere
+      ? animate(
+          atmosphere,
+          { opacity: [0.7, 1], transform: ['scale(1.012)', 'scale(1)'] },
+          { duration: 0.65, ease: [0.22, 1, 0.36, 1] },
+        )
+      : null
+    el.style.transformOrigin = camera[1]
+
+    return () => {
+      contentMotion?.stop?.()
+      atmosphereMotion?.stop?.()
+    }
+  }, [pathname, family])
   return (
       <div className="flex w-full min-h-screen bg-atlas-bg">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
@@ -100,12 +128,14 @@ function AtlasShell() {
           </span>
         </button>
         <main
+          ref={mainRef}
           className="atlas-main flex-1 lg:ml-56 min-h-screen overflow-x-hidden"
           data-atlas-scene={scene.key}
           data-atlas-family={family}
           style={{ '--route-accent': scene.accent }}
         >
           <RouteAtmosphere scene={scene} />
+          <SceneCut scene={scene} />
           <div className="atlas-route-content" ref={routeRef}>
             <Suspense fallback={<div className="min-h-screen grid place-items-center text-atlas-muted" role="status">Opening atlas room…</div>}>
             <Routes>

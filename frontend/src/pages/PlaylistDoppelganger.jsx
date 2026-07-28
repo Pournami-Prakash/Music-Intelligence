@@ -4,7 +4,7 @@ import LottiePlayer from '../components/LottiePlayer'
 import { CountUp } from '../components/Observatory'
 import { PvPage, PvTop, PvHero, PvSearch, PvChips, PvPanel } from '../components/Premium'
 import { ErrorSignal } from '../components/SignalState'
-import { errorMessage, getJson, getExample } from '../lib/api'
+import { errorMessage, getJson, readSharedParam, replaceSharedParams } from '../lib/api'
 
 const ACCENT = '#B08CF8'
 const SUGGESTIONS = ['Drake', 'Phoebe Bridgers', 'Radiohead', 'Tyler, the Creator', 'SZA']
@@ -18,7 +18,8 @@ export default function PlaylistDoppelganger() {
 
   useEffect(() => {
     const s = location.state
-    if (s?.artist || s?.query) { const q = s.artist || s.query; setQuery(q); search(q) }
+    const q = s?.artist || s?.query || readSharedParam('artist')
+    if (q) { setQuery(q); search(q) }
   }, [location.state])
 
   const search = async (q) => {
@@ -27,9 +28,9 @@ export default function PlaylistDoppelganger() {
     setResult(null)
     setError(null)
     try {
-      const snapshot = await getExample('doppelganger-examples.json', q)
-      setResult(snapshot ? { ...snapshot, _snapshot: true }
-        : await getJson(`/api/doppelganger/${encodeURIComponent(q)}`))
+      const data = await getJson(`/api/doppelganger/${encodeURIComponent(q)}`)
+      setResult(data)
+      replaceSharedParams({ artist: data.artist || q })
     } catch (e) {
       setError(errorMessage(e))
     } finally {
@@ -54,7 +55,7 @@ export default function PlaylistDoppelganger() {
           <div className="pv-panel grid place-items-center" style={{ minHeight: 320 }}>
             <div className="text-center">
               <LottiePlayer src="/assets/search.json" className="w-40 h-40 mx-auto" />
-              <p className="mt-2 text-[var(--text-mid)]" role="status">Finding sonic neighbors. Long-tail artists use a slower full-vector lookup…</p>
+              <p className="mt-2 text-[var(--text-mid)]" role="status">Finding artist neighbors in the interactive track-vector index…</p>
             </div>
           </div>
         )}
@@ -77,8 +78,9 @@ export default function PlaylistDoppelganger() {
         {result && !loading && !error && (
           <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px] gap-4 items-start">
             <PvPanel label="Closest twins" className="atlas-rise" style={{ '--i': 0 }}>
-              {result._snapshot && <p className="atlas-coverage-note mb-3">Cached result from the same full-data query, available while the free demo host wakes up.</p>}
-              {result.meta?.query_vectors === 'r2_fallback' && <p className="atlas-coverage-note mb-3">This long-tail artist was read from the full R2 vector table. Matches are drawn from the 10,000-track fast candidate index.</p>}
+              <p className="atlas-coverage-note mb-3">
+                Ranked by the displayed aggregate similarity. {result.track_count} query track{result.track_count === 1 ? '' : 's'} had vectors; candidates come from the popular 10,000-track index.
+              </p>
               <div className="space-y-px">
                 {(result.doppelgangers || []).map((d, i) => (
                   <Link
@@ -92,6 +94,7 @@ export default function PlaylistDoppelganger() {
                     <span className="min-w-0">
                       <span className="block text-[var(--text-hi)] text-sm truncate">{d.name}</span>
                       {d.tags?.length > 0 && <span className="block text-[var(--text-low)] text-xs truncate">{d.tags.slice(0, 4).join(' · ')}</span>}
+                      <span className="block text-[var(--text-low)] text-[10px]">{d.support_tracks || 1} supporting neighbor track{d.support_tracks === 1 ? '' : 's'}</span>
                     </span>
                     <span className="text-sm font-semibold" style={{ color: ACCENT }}>{(d.similarity * 100).toFixed(0)}%</span>
                   </Link>

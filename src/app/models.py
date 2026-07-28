@@ -13,9 +13,13 @@ class GroupBlendBody(BaseModel):
 
 
 class ForensicsBody(BaseModel):
-    playlist_url: str = ""
-    tracks: list[str] = Field(default_factory=list)
+    playlist_url: str = Field(default="", max_length=2048)
+    tracks: list[str] = Field(default_factory=list, max_length=500)
+
+
+class PlaylistUrlBody(BaseModel):
+    playlist_url: str = Field(default="", max_length=2048)
 
 
 class SoundtrackGiftBody(BaseModel):
-    prompt: str = ""
+    prompt: str = Field(default="", max_length=500)

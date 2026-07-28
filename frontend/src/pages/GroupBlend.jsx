@@ -4,6 +4,7 @@ import { Plus, X, Shuffle, User } from 'lucide-react'
 import LottiePlayer from '../components/LottiePlayer'
 import { CountUp } from '../components/Observatory'
 import { PvPage, PvTop, PvHero } from '../components/Premium'
+import { ErrorSignal } from '../components/SignalState'
 import { errorMessage, getJson } from '../lib/api'
 
 const ACCENT = '#B08CF8'
@@ -12,6 +13,7 @@ export default function GroupBlend() {
   const [inputs, setInputs] = useState(['', ''])
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
 
   const addInput = () => { if (inputs.length < 6) setInputs([...inputs, '']) }
   const removeInput = (i) => setInputs(inputs.filter((_, j) => j !== i))
@@ -22,6 +24,7 @@ export default function GroupBlend() {
     if (valid.length < 2) return
     setLoading(true)
     setResult(null)
+    setError(null)
     try {
       setResult(await getJson('/api/group-blend', {
         method: 'POST',
@@ -29,7 +32,7 @@ export default function GroupBlend() {
         body: JSON.stringify({ artists: valid }),
       }))
     } catch (e) {
-      setResult({ input_artists: valid, compatibility_pct: 0, blend_artists: [], _demo: true, _error: errorMessage(e) })
+      setError(errorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -89,15 +92,15 @@ export default function GroupBlend() {
           </div>
         )}
 
-        {result && !loading && (
+        {error && !loading && <ErrorSignal detail={error} onRetry={blend}>We couldn’t calculate this group blend.</ErrorSignal>}
+        {result && !loading && !error && (
           <div className="grid grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)] gap-4 items-start">
             <div className="pv-panel atlas-rise" style={{ '--i': 0 }}>
               <p className="pv-panel-label">Blend summary</p>
-              {result._demo && <p className="mb-3 text-xs text-[var(--warning)]">Sample data — {result._error || 'live endpoint unavailable'}.</p>}
               <p className="text-7xl font-extrabold tracking-[-0.04em]" style={{ color: ACCENT }}>
                 <CountUp value={result.compatibility_pct} decimals={1} /><span className="text-2xl align-top">%</span>
               </p>
-              <p className="text-[var(--text-low)] text-xs uppercase tracking-[0.14em] mt-1">compatibility</p>
+              <p className="text-[var(--text-low)] text-xs uppercase tracking-[0.14em] mt-1">shared-neighborhood coverage</p>
               <div className="flex flex-wrap gap-2 mt-5">
                 {result.input_artists.map(a => (
                   <span key={a} className="text-xs px-2.5 py-1 rounded-full text-[var(--text-mid)] border border-[var(--hairline)]">{a}</span>

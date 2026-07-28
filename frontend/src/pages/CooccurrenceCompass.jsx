@@ -3,19 +3,11 @@ import { useLocation } from 'react-router-dom'
 import OrbitField from '../components/OrbitField'
 import LottiePlayer from '../components/LottiePlayer'
 import { PvPage, PvTop, PvHero, PvSearch, PvChips, PvPanel } from '../components/Premium'
+import { ErrorSignal } from '../components/SignalState'
 import { errorMessage, getJson } from '../lib/api'
 
 const ACCENT = '#B08CF8'
 const SUGGESTIONS = ['Drake', 'The Weeknd', 'Taylor Swift', 'Radiohead', 'Kendrick Lamar']
-
-const MOCK = {
-  center: { title: 'Kendrick Lamar' },
-  neighbors: [
-    { title: 'SZA', strength: 0.94 }, { title: 'Baby Keem', strength: 0.89 },
-    { title: 'J. Cole', strength: 0.78 }, { title: 'Drake', strength: 0.62 },
-    { title: 'ScHoolboy Q', strength: 0.58 }, { title: 'Tyler, the Creator', strength: 0.52 },
-  ],
-}
 
 function Bar({ label, value, color }) {
   return (
@@ -36,6 +28,7 @@ export default function CooccurrenceCompass() {
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [selected, setSelected] = useState(null)
+  const [error, setError] = useState(null)
   const location = useLocation()
 
   useEffect(() => {
@@ -48,11 +41,12 @@ export default function CooccurrenceCompass() {
     setLoading(true)
     setSelected(null)
     setResult(null)
+    setError(null)
     try {
       const data = await getJson(`/api/compass/${encodeURIComponent(q)}`)
       setResult({ center: data.center, neighbors: data.neighbors })
     } catch (e) {
-      setResult({ ...MOCK, center: { title: q }, _demo: true, _error: errorMessage(e) })
+      setError(errorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -64,7 +58,7 @@ export default function CooccurrenceCompass() {
   return (
     <PvPage>
       <PvTop sub="Taste Tunnel" pill="Artist co-occurrence" />
-      <PvHero eyebrow="Correlation field" title={result?.center?.title || 'Co-occurrence Compass'}>
+      <PvHero eyebrow="Co-occurrence field" title={result?.center?.title || 'Co-occurrence Compass'}>
         Put one artist at the center and inspect the other artists most often pulled into the same playlists.
       </PvHero>
 
@@ -81,7 +75,7 @@ export default function CooccurrenceCompass() {
           </div>
         )}
 
-        {!result && !loading && (
+        {!result && !loading && !error && (
           <div className="pv-panel grid place-items-center" style={{ minHeight: 340 }}>
             <div className="text-center max-w-md">
               <LottiePlayer src="/assets/radar.json" className="w-44 h-44 mx-auto" />
@@ -90,17 +84,16 @@ export default function CooccurrenceCompass() {
           </div>
         )}
 
-        {result && !loading && (
+        {error && !loading && <ErrorSignal detail={error} onRetry={() => search(query)}>We couldn’t open this artist’s co-occurrence field.</ErrorSignal>}
+        {result && !loading && !error && (
           <div className="space-y-4">
-            {result._demo && <p className="text-xs text-[var(--warning)]">Sample data — {result._error || 'live endpoint unavailable'}.</p>}
             <div className="grid grid-cols-1 xl:grid-cols-[340px_minmax(0,1fr)] gap-4 items-start">
               <PvPanel label="Subject file" className="atlas-rise" style={{ '--i': 0 }}>
                 <p className="text-[var(--text-hi)] text-3xl font-extrabold tracking-[-0.03em]">{result.center.title}</p>
                 <p className="text-[var(--text-low)] text-xs uppercase tracking-[0.14em] mt-1">playlist gravity center</p>
                 <div className="mt-5">
-                  <Bar label="nearest correlation" value={(strongest?.strength || 0) * 100} color={ACCENT} />
-                  <Bar label="orbit size" value={Math.min(99, result.neighbors.length * 9)} color="#F5C451" />
-                  <Bar label="selected pull" value={(picked?.strength || 0) * 100} color="#5AC8FA" />
+                  <Bar label="strongest neighbor (reference)" value={(strongest?.strength || 0) * 100} color={ACCENT} />
+                  <Bar label="selected relative pull" value={(picked?.strength || 0) * 100} color="#5AC8FA" />
                 </div>
               </PvPanel>
 
@@ -112,7 +105,7 @@ export default function CooccurrenceCompass() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-4">
-              <PvPanel label="Correlation ledger" className="atlas-rise" style={{ '--i': 2 }}>
+              <PvPanel label="Co-occurrence ledger" className="atlas-rise" style={{ '--i': 2 }}>
                 <div className="space-y-px">
                   {result.neighbors.slice(0, 8).map((n, i) => (
                     <div

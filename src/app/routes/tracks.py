@@ -1,41 +1,15 @@
-import re
-import sqlite3
 from typing import Optional
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException
 
-from src.app.cache import _load_computed, local_gzip_artifact, local_parquet, duck_df, duck_one
+from src.app.cache import _load_computed, local_parquet, duck_df, duck_one
 from src.app.helpers import _to_list, _resolve_artist_row
+from src.app.rcache import ttl_cache
 from src.app.telemetry import record_event
 from src.storage.duckdb_r2 import R2_PATH
 
 router = APIRouter()
-
-
-def _fts_query(value: str) -> str:
-    """Convert user text to a safe FTS5 token-prefix query."""
-    tokens = re.findall(r"\w+", value.casefold(), flags=re.UNICODE)[:8]
-    return " AND ".join(f'"{token}"*' for token in tokens)
-
-
-def _full_search(q: str, limit: int) -> list[dict]:
-    path = local_gzip_artifact("computed/track_search.sqlite.gz")
-    expression = _fts_query(q)
-    if path is None or not expression:
-        return []
-    uri = f"file:{path.as_posix()}?mode=ro&immutable=1"
-    with sqlite3.connect(uri, uri=True, timeout=3) as db:
-        db.execute("PRAGMA query_only=ON")
-        rows = db.execute("""
-            SELECT t.title, t.artist, t.uri
-            FROM tracks_fts f
-            JOIN tracks t ON t.id = f.rowid
-            WHERE tracks_fts MATCH ?
-            ORDER BY bm25(tracks_fts, 8.0, 2.0), t.popularity_rank
-            LIMIT ?
-        """, (expression, limit * 4)).fetchall()
-    return [{"title": r[0], "artist": r[1], "uri": r[2]} for r in rows]
 
 
 @router.get("/api/search-tracks")
@@ -81,37 +55,30 @@ def search_tracks(q: str = "", limit: int = 10):
         except Exception:
             pass
 
+    # Never make an autocomplete request wait for the multi-million-row FTS
+    # archive to download. The 599K-track embeddable lookup is the interactive
+    # search contract; a quick partial result is more useful than a 30–90s
+    # attempt to fill the final suggestion slots.
     source = "embeddable_fast_path"
-    if len(results) < limit:
-        try:
-            for item in _full_search(q_lower, limit):
-                key = (item["title"], item["artist"])
-                if key in seen:
-                    continue
-                seen.add(key)
-                results.append(item)
-                if len(results) >= limit:
-                    break
-            source = "full_index"
-        except Exception as exc:
-            print(f"  [track_search] full-index fallback failed: {exc}", flush=True)
 
     record_event("track_search", source if results else f"{source}_empty")
     return {
         "results": results,
         "meta": {
             "source": source,
-            "coverage": "all_tracks" if source == "full_index" else "embeddable_tracks",
-            "fallback_used": source == "full_index",
+            "coverage": "embeddable_tracks",
+            "fallback_used": False,
         },
     }
 
 
 @router.get("/api/song-passport/{track}")
-def song_passport(track: str):
-    safe = track.replace("'", "''")
+@ttl_cache(maxsize=256, ttl=3600)
+def song_passport(track: str, track_uri: Optional[str] = None):
     try:
         _COLS = "track_uri, track_name, artist_name, playlist_count, top_playlist_names"
+        predicate = "track_uri = ?" if track_uri else "track_name_lc = lower(?)"
+        value = track_uri or track
 
         # Fast path: the top-300K popular tracks live in a small (~19 MB) local
         # parquet, sorted by track_name_lc with small row groups so this equality
@@ -121,8 +88,8 @@ def song_passport(track: str):
         if ts_path is not None:
             rows = duck_df(f"""
                 SELECT {_COLS} FROM read_parquet('{ts_path.as_posix()}')
-                WHERE track_name_lc = lower('{safe}') ORDER BY playlist_count DESC
-            """)
+                WHERE {predicate} ORDER BY playlist_count DESC
+            """, [value])
 
         # Miss → query the FULL pre-aggregated table directly from R2 (never
         # downloaded locally). It's sorted by track_name_lc with small row groups,
@@ -131,28 +98,31 @@ def song_passport(track: str):
         if rows is None or rows.empty:
             rows = duck_df(f"""
                 SELECT {_COLS} FROM read_parquet('{R2_PATH}/computed/track_stats_lookup.parquet')
-                WHERE track_name_lc = lower('{safe}') ORDER BY playlist_count DESC
-            """)
+                WHERE {predicate} ORDER BY playlist_count DESC
+            """, [value])
 
         if rows is None or rows.empty:
             raise HTTPException(404, detail="track_not_found")
+        if not track_uri and rows["artist_name"].dropna().nunique() > 1:
+            raise HTTPException(409, detail="ambiguous_track")
         row           = rows.iloc[0]
         pc            = int(row["playlist_count"])
         artist        = row["artist_name"]
         name          = row["track_name"]
         track_uri     = row["track_uri"]
         names_df      = pd.DataFrame({"name": _to_list(row.get("top_playlist_names"))})
-        other_artists = rows["artist_name"].iloc[1:].tolist() if len(rows) > 1 else []
 
         lb_listen_count: Optional[int] = None
         lb_isrc: Optional[str] = None
-        # Query listenbrainz_lookup DIRECTLY from R2 (not downloaded locally): it's
-        # sorted by spotify_track_uri with small row groups, so httpfs predicate
-        # pushdown fetches one row group — a tiny read, one per song-passport, and
-        # keeps the 35 MB file off the local box.
-        lb = duck_one(
-            f"SELECT listen_count, isrc FROM read_parquet('{R2_PATH}/enrichment/listenbrainz_lookup.parquet') "
-            f"WHERE spotify_track_uri = ? LIMIT 1", [track_uri],
+        # Keep the compact lookup local. Remote parquet row-group requests made
+        # the first passport take 15–20 seconds on the demo host.
+        lb_path = local_parquet("enrichment/listenbrainz_lookup.parquet")
+        lb = (
+            duck_one(
+                f"SELECT listen_count, isrc FROM read_parquet('{lb_path.as_posix()}') "
+                f"WHERE spotify_track_uri = ? LIMIT 1", [track_uri],
+            )
+            if lb_path is not None else None
         )
         if lb is not None:
             v = lb[0]
@@ -205,12 +175,6 @@ def song_passport(track: str):
         }
         if fma:
             result["fma"] = fma
-        if other_artists:
-            result["version_note"] = (
-                f"Multiple artists have a track titled '{name}' "
-                f"({', '.join(other_artists[:3])}{'…' if len(other_artists) > 3 else ''} also have this title). "
-                f"Showing the most-played version."
-            )
         return result
     except HTTPException:
         raise

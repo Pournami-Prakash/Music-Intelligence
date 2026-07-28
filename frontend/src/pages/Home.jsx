@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowUpRight, Search } from 'lucide-react'
-import { animate, inView, stagger } from 'motion'
+import { animate, stagger } from 'motion'
 import { ROOM_ORDER, ROOMS } from '../data/rooms'
 import { CountUp } from '../components/Observatory'
-import LottiePlayer from '../components/LottiePlayer'
+import CorpusSignal from '../components/CorpusSignal'
 import { apiUrl } from '../lib/api'
 
 const DEFAULT_STATS = {
@@ -27,6 +27,12 @@ const FAST_ENTRY = [
   ['Drake footprint', '/artist-ubiquity', { artist: 'Drake' }, '#3DDC97'],
   ['Mr. Brightside passport', '/song-passport', { track: 'Mr. Brightside' }, '#5AC8FA'],
   ['Drake → Radiohead', '/six-degrees', { from: 'Drake', to: 'Radiohead' }, '#B08CF8'],
+]
+
+const SEARCH_STARTERS = [
+  { label: 'Taylor Swift', query: 'Taylor Swift' },
+  { label: 'Radiohead', query: 'Radiohead' },
+  { label: 'Drake → Radiohead', to: '/six-degrees', state: { from: 'Drake', to: 'Radiohead' } },
 ]
 
 export default function Home() {
@@ -66,23 +72,7 @@ export default function Home() {
       { duration: 3.4, delay: 0.8, repeat: Infinity, repeatDelay: 2.8, ease: 'linear' },
     ))
 
-    const stopReveal = inView(
-      page.querySelectorAll('[data-motion-reveal]'),
-      element => {
-        const children = element.matches('.pv-room-index')
-          ? element.querySelectorAll('.pv-room-entry')
-          : [element]
-        controls.push(animate(
-          children,
-          { opacity: [0, 1], transform: ['translateY(24px)', 'translateY(0px)'] },
-          { duration: 0.62, delay: stagger(0.07), ease: [0.22, 1, 0.36, 1] },
-        ))
-      },
-      { amount: 0.12, margin: '0px 0px -8% 0px' },
-    )
-
     return () => {
-      stopReveal()
       controls.forEach(control => control?.stop?.())
     }
   }, [])
@@ -121,13 +111,23 @@ export default function Home() {
             </div>
             <button type="submit" disabled={!query.trim()}>Enter Atlas</button>
           </form>
+          <div className="pv-search-starters" data-motion-intro>
+            <span>Try a signal</span>
+            {SEARCH_STARTERS.map(item => (
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => item.to ? navigate(item.to, { state: item.state }) : setQuery(item.query)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="pv-home-lottie">
-          <div className="pv-orbit-guide" aria-hidden="true"><i /><i /><i /></div>
           <div className="pv-signal-sweep" aria-hidden="true" />
-          <LottiePlayer src="/assets/earth-connections.json" className="w-full h-full" />
-          <div className="pv-stage-caption"><span>Live corpus</span><b>66M relationships</b></div>
+          <CorpusSignal />
         </div>
       </section>
 

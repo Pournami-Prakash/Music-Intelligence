@@ -1,4 +1,3 @@
-import math
 import os
 from typing import Optional
 
@@ -160,6 +159,13 @@ def artist_habitat(artist: str, artist_uri: Optional[str] = None):
                 "artist":         r["artist_name"],
                 "playlist_count": int(r["playlist_count"]),
                 "habitats":       habitats,
+                "method_version": "distinct-artist-playlist-v2",
+                "evidence": {
+                    "metric": "Distinct playlists containing the artist whose titles match each context",
+                    "population": f"{int(r['playlist_count']):,} playlists containing the artist",
+                    "source": "Playlist titles and track membership",
+                    "limitations": ["Categories can overlap", "Title context does not describe every listener's use"],
+                },
             }
 
     stats_df = _load_computed("computed/artist_stats.parquet")
@@ -198,7 +204,17 @@ def compass(artist: str):
         }
         for name, shared in top
     ]
-    return {"center": {"title": canonical, "artist": canonical}, "neighbors": neighbors}
+    return {
+        "center": {"title": canonical, "artist": canonical},
+        "neighbors": neighbors,
+        "method": "Shared-playlist count normalized to the strongest displayed neighbor",
+        "evidence": {
+            "metric": "Relative shared-playlist count",
+            "population": "Twelve strongest co-occurrence neighbors",
+            "source": "Artist playlist co-occurrence graph",
+            "limitations": ["Relative strength is not statistical correlation"],
+        },
+    }
 
 
 @router.get("/api/basicness/{query}")
@@ -237,8 +253,8 @@ def main_character(query: str):
     pct        = float(r["playlist_pct"])
     rank       = int(r["rank"])
     total      = len(df)
-    score      = min(99.0, round(math.log1p(pct) / math.log1p(20.334) * 96, 1))
     percentile = round((1 - (rank - 1) / total) * 100, 1)
+    score      = percentile
 
     top_co = _to_list(r.get("top_co_artists"))
     colony = [
@@ -259,10 +275,17 @@ def main_character(query: str):
         "listeners":      listeners,
         "top_tracks":     list(r["top_tracks"])[:5] if r["top_tracks"] is not None else [],
         "colony":         colony,
-        "status":         "critical_overload" if score >= 90 else
-                          "dominant"          if score >= 75 else
-                          "strong_presence"   if score >= 50 else
-                          "niche",
+        "status":         "top_decile"         if score >= 90 else
+                          "high_reach"          if score >= 75 else
+                          "above_median_reach"  if score >= 50 else
+                          "focused_reach",
+        "method":         "Playlist-reach percentile among the 10,000-artist comparison set",
+        "evidence": {
+            "metric": "Percentile rank by number of playlists containing the artist",
+            "population": f"{total:,} most-playlisted artists",
+            "source": "One-million-playlist corpus",
+            "limitations": ["Reach is not artistic importance, influence, or listener popularity"],
+        },
     }
 
 
@@ -311,16 +334,16 @@ def ancestry(artist: str, limit: int = 5):
     scores.sort(key=lambda x: -x["similarity"])
     candidates = scores[:60]
 
-    ancestors = sorted(
+    higher_reach = sorted(
         [c for c in candidates if c["playlist_count"] > artist_pc * 1.2],
         key=lambda x: -x["similarity"],
     )[:limit]
-    descendants = sorted(
+    lower_reach = sorted(
         [c for c in candidates if c["playlist_count"] < artist_pc * 0.8],
         key=lambda x: -x["similarity"],
     )[:limit]
     peers = sorted(
-        [c for c in candidates if c not in ancestors and c not in descendants],
+        [c for c in candidates if c not in higher_reach and c not in lower_reach],
         key=lambda x: -x["similarity"],
     )[:limit]
 
@@ -333,18 +356,25 @@ def ancestry(artist: str, limit: int = 5):
         "artist_tags":    sorted(artist_tags)[:8],
         "listeners":      lastfm_listeners,
         "lastfm_similar": lastfm_similar,
-        "ancestors": [
+        "higher_reach": [
             {"name": a["name"], "similarity": a["similarity"],
              "shared_tags": a["shared_tags"], "playlist_count": a["playlist_count"]}
-            for a in ancestors
+            for a in higher_reach
         ],
-        "descendants": [
+        "lower_reach": [
             {"name": d["name"], "similarity": d["similarity"],
              "shared_tags": d["shared_tags"], "playlist_count": d["playlist_count"]}
-            for d in descendants
+            for d in lower_reach
         ],
         "peers": [
             {"name": p["name"], "similarity": p["similarity"], "shared_tags": p["shared_tags"]}
             for p in peers
         ],
+        "method": "Jaccard similarity across artist tags, split by relative playlist reach",
+        "evidence": {
+            "metric": "Shared-tag Jaccard similarity",
+            "population": "Artists with genre/tag enrichment and playlist reach",
+            "source": "Last.fm/MusicBrainz-style tags and playlist counts",
+            "limitations": ["This does not infer chronology, influence, or artistic descent"],
+        },
     }

@@ -1,3 +1,4 @@
+import os
 from threading import Lock
 from fastapi import APIRouter
 
@@ -31,6 +32,9 @@ def ready():
 @router.get("/api/capabilities")
 def capabilities():
     return {
+        "legacy_heavy_endpoints": os.getenv(
+            "ENABLE_LEGACY_HEAVY_ENDPOINTS", ""
+        ).lower() in {"1", "true", "yes"},
         "track_search": {"fast_path": 599_341, "full_index": 2_262_292},
         "artist_ubiquity": {"rank_coverage": 295_860, "rich_details": 10_000},
         "vectors": {

@@ -5,7 +5,7 @@ import TrackAutocomplete from '../components/TrackAutocomplete'
 import { CountUp, SpinningRecord } from '../components/Observatory'
 import { PvPage, PvTop, PvHero, PvChips, PvPanel } from '../components/Premium'
 import { ErrorSignal } from '../components/SignalState'
-import { errorMessage, getJson, getExample } from '../lib/api'
+import { errorMessage, getJson } from '../lib/api'
 
 const ACCENT = '#5AC8FA'
 const SUGGESTIONS = ['Mr. Brightside', 'Bohemian Rhapsody', 'HUMBLE.', 'Shape of You', 'Blinding Lights']
@@ -22,14 +22,14 @@ export default function SongPassport() {
     if (s?.track) { setQuery(s.track); search(s.track) }
   }, [location.state])
 
-  const search = async (q) => {
+  const search = async (q, trackUri = null) => {
     if (!q?.trim()) return
     setLoading(true)
     setResult(null)
     setError(null)
     try {
-      const snapshot = await getExample('song-passport-examples.json', q)
-      const data = snapshot || await getJson(`/api/song-passport/${encodeURIComponent(q)}`)
+      const uriParam = trackUri ? `?track_uri=${encodeURIComponent(trackUri)}` : ''
+      const data = await getJson(`/api/song-passport/${encodeURIComponent(q)}${uriParam}`)
       setResult({
         title: data.title,
         artist: data.artist,
@@ -40,7 +40,6 @@ export default function SongPassport() {
         listens: data.lb_listen_count,
         isrc: data.isrc,
         version_note: data.version_note,
-        _snapshot: !!snapshot,
       })
     } catch (e) {
       setError(errorMessage(e))
@@ -57,10 +56,10 @@ export default function SongPassport() {
       </PvHero>
 
       <form className="pv-search" onSubmit={e => { e.preventDefault(); search(query) }}>
-        <TrackAutocomplete value={query} onChange={setQuery} onSelect={item => { setQuery(item.title); search(item.title) }} placeholder="Track name…" />
+        <TrackAutocomplete value={query} onChange={setQuery} onSelect={item => { setQuery(item.title); search(item.title, item.uri) }} placeholder="Track name or artist…" />
         <button disabled={!query.trim() || loading}>{loading ? 'Working…' : 'Stamp passport'}</button>
       </form>
-      <PvChips items={SUGGESTIONS} onPick={s => { setQuery(s); search(s) }} />
+      <PvChips items={SUGGESTIONS} onPick={s => setQuery(s)} />
 
       <div className="max-w-6xl">
         {loading && (
@@ -89,7 +88,6 @@ export default function SongPassport() {
 
         {result && !loading && !error && (
           <div className="space-y-4">
-            {result._snapshot && <p className="atlas-coverage-note">Cached result from the same full-data query, shown instantly while the free demo host wakes up.</p>}
             <div className="grid grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)] gap-4 items-start">
               <PvPanel label="Track artifact" className="atlas-rise" style={{ '--i': 0 }}>
                 <SpinningRecord label={result.title} sub={result.artist} accent={ACCENT} />

@@ -50,7 +50,7 @@ export default function PlaylistNameGenerator() {
     <PvPage>
       <PvTop sub="Vibe Dictionary" pill="Phrase machine" />
       <PvHero eyebrow="Name synthesis" title="Playlist Name Generator">
-        Pick a theme and generate names built from real playlist-language patterns — weird, specific, and usable.
+        Pick a theme and remix real playlist-title terms into new name ideas.
       </PvHero>
 
       <div className="max-w-6xl">
@@ -85,6 +85,7 @@ export default function PlaylistNameGenerator() {
             <div className="text-center max-w-md">
               <LottiePlayer src="/assets/pulse-green.json" className="w-32 h-32 mx-auto" />
               <p className="mt-2 text-[var(--text-mid)]">{source || 'Pick a theme to generate playlist names.'}</p>
+              {theme && <p className="mt-2 text-xs text-[var(--text-low)]">Every result includes a {theme} anchor and a companion term observed in the matching corpus category.</p>}
             </div>
           </div>
         )}

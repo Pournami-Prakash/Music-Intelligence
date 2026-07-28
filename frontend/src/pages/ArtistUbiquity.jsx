@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import LottiePlayer from '../components/LottiePlayer'
 import { CountUp, EqualizerBars, OrbitSystem, SpinningRecord } from '../components/Observatory'
+import { PvPage } from '../components/Premium'
 import { ErrorSignal } from '../components/SignalState'
 import { errorMessage, getJson } from '../lib/api'
 
@@ -45,7 +46,7 @@ export default function ArtistUbiquity() {
   const reachClass = result?.pct > 10 ? 'Top 1%' : result?.pct > 5 ? 'High orbit' : 'Niche signal'
 
   return (
-    <div className="pv">
+    <PvPage>
       <div className="pv-top">
         <div className="pv-brand"><b>Music Intelligence Atlas</b> · Artist reach</div>
         <div className="pv-pill">Playlist footprint</div>
@@ -156,6 +157,6 @@ export default function ArtistUbiquity() {
           </div>
         )}
       </div>
-    </div>
+    </PvPage>
   )
 }

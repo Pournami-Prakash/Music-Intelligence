@@ -3,15 +3,8 @@ import { useLocation } from 'react-router-dom'
 import LottiePlayer from '../components/LottiePlayer'
 import { CountUp } from '../components/Observatory'
 import { PvPage, PvTop, PvHero, PvSearch, PvChips, PvPanel } from '../components/Premium'
+import { ErrorSignal } from '../components/SignalState'
 import { errorMessage, getJson } from '../lib/api'
-
-const MOCK_ARTISTS = {
-  'Ed Sheeran': { peers: ['Post Malone', 'Drake', 'The Weeknd'] },
-  'Taylor Swift': { peers: ['Ariana Grande', 'Olivia Rodrigo', 'Billie Eilish'] },
-  'Drake': { peers: ['J. Cole', 'Kendrick Lamar', 'Future'] },
-  'Radiohead': { peers: ['Arcade Fire', 'Bon Iver', 'The National'] },
-  'Kendrick Lamar': { peers: ['J. Cole', 'Drake', 'Tyler, the Creator'] },
-}
 
 // Labels describe playlist ubiquity (how often the artist is reached for),
 // not a taste judgment — a niche artist can still be highly playlisted.
@@ -45,6 +38,7 @@ export default function BasicnessIndex() {
   const [query, setQuery] = useState('')
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const location = useLocation()
 
   useEffect(() => {
@@ -56,6 +50,7 @@ export default function BasicnessIndex() {
     if (!q?.trim()) return
     setLoading(true)
     setResult(null)
+    setError(null)
     try {
       const data = await getJson(`/api/basicness/${encodeURIComponent(q)}`)
       const score = data.percentile
@@ -65,13 +60,12 @@ export default function BasicnessIndex() {
         score,
         rank: data.rank,
         total: data.total_artists,
+        pct: data.pct_of_playlists,
         tier,
-        peers: MOCK_ARTISTS[q]?.peers || [],
         diagnosis: `${data.query} sits in the ${score.toFixed(1)}th percentile of ${data.total_artists.toLocaleString()} artists by playlist frequency — ranked #${data.rank}.`,
       })
     } catch (e) {
-      const tier = scoreLabel(50)
-      setResult({ query: q, score: 50, tier, peers: MOCK_ARTISTS[q]?.peers || [], diagnosis: `Sample data — ${errorMessage(e)}.`, _demo: true })
+      setError(errorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -97,7 +91,7 @@ export default function BasicnessIndex() {
           </div>
         )}
 
-        {!result && !loading && (
+        {!result && !loading && !error && (
           <div className="pv-panel grid place-items-center" style={{ minHeight: 300 }}>
             <div className="text-center max-w-md">
               <LottiePlayer src="/assets/pulse-green.json" className="w-32 h-32 mx-auto" />
@@ -106,32 +100,27 @@ export default function BasicnessIndex() {
           </div>
         )}
 
-        {result && !loading && (
+        {error && !loading && <ErrorSignal detail={error} onRetry={() => search(query)}>We couldn’t calculate this artist’s archive percentile.</ErrorSignal>}
+        {result && !loading && !error && (
           <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-4">
             <PvPanel label="Percentile calibration" className="atlas-rise" style={{ '--i': 0 }}>
-              {result._demo && <p className="mb-3 text-xs text-[var(--warning)]">{result.diagnosis}</p>}
               <p className="text-7xl sm:text-8xl font-extrabold tracking-[-0.04em] leading-none" style={{ color: result.tier.color }}>
                 <CountUp value={result.score} decimals={1} /><span className="text-3xl align-top">th</span>
               </p>
               <p className="text-[var(--text-hi)] text-2xl font-bold mt-2">{result.tier.label}</p>
-              {!result._demo && <p className="text-[var(--text-mid)] mt-4 max-w-xl">{result.diagnosis}</p>}
+              <p className="text-[var(--text-mid)] mt-4 max-w-xl">{result.diagnosis}</p>
               <div className="mt-6 max-w-xl">
                 <Bar label="niche → mainstream" value={result.score} color={result.tier.color} />
-                <Bar label="predictability" value={Math.min(99, result.score * 0.88)} color="#3DDC97" />
-                <Bar label="cross-playlist familiarity" value={Math.min(99, result.score * 0.92)} color="#F5C451" />
               </div>
             </PvPanel>
 
-            <PvPanel label="Similar tier" className="atlas-rise" style={{ '--i': 1 }}>
-              {(result.peers?.length ? result.peers : ['Unknown Mortal Orchestra', 'The Japanese House', 'Still Woozy']).map((peer, index) => (
-                <button
-                  key={peer}
-                  onClick={() => { setQuery(peer); search(peer) }}
-                  className="w-full text-left py-3 border-b border-[var(--hairline)] last:border-0 text-[var(--text-mid)] hover:text-[var(--text-hi)]"
-                >
-                  <span className="text-[var(--text-low)] mr-3 font-mono text-xs">{String(index + 1).padStart(2, '0')}</span>{peer}
-                </button>
-              ))}
+            <PvPanel label="Source facts" className="atlas-rise" style={{ '--i': 1 }}>
+              <div className="space-y-3">
+                <div className="pv-cell"><small>Archive rank</small><strong>#{result.rank.toLocaleString()}</strong></div>
+                <div className="pv-cell"><small>Artists compared</small><strong>{result.total.toLocaleString()}</strong></div>
+                <div className="pv-cell"><small>Playlist reach</small><strong>{result.pct}%</strong></div>
+              </div>
+              <p className="mt-4 text-xs leading-relaxed text-[var(--text-low)]">No inferred personality traits or fabricated “similar tier” artists are added to this result.</p>
             </PvPanel>
           </div>
         )}

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import LottiePlayer from '../components/LottiePlayer'
 import { PvPage, PvTop, PvHero, PvPanel } from '../components/Premium'
-import { apiUrl } from '../lib/api'
+import { errorMessage } from '../lib/api'
 
 const MOODS = ['sad', 'happy', 'gym', 'party', 'study', 'sleep', 'chill']
 const MOOD_COLORS = {
@@ -34,10 +34,14 @@ export default function GuiltyPleasureMap() {
     setLoading(true)
     setError(null)
     setSelected(null)
-    fetch(apiUrl(`/api/mood-contradiction?mood=${mood}&limit=20`))
-      .then(r => r.ok ? r.json() : Promise.reject(r.statusText))
-      .then(d => { setData(d); setLoading(false) })
-      .catch(e => { setError(String(e)); setLoading(false) })
+    fetch('/data/mood-contradiction.json')
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('Context-comparison evidence is unavailable.')))
+      .then(all => {
+        if (!all[mood]) throw new Error(`No context-comparison evidence exists for ${mood}.`)
+        setData(all[mood])
+        setLoading(false)
+      })
+      .catch(e => { setError(errorMessage(e)); setLoading(false) })
   }, [mood])
 
   useEffect(() => { load() }, [load])
@@ -48,9 +52,9 @@ export default function GuiltyPleasureMap() {
 
   return (
     <PvPage>
-      <PvTop sub="Song World" pill="Mood contradiction" />
-      <PvHero eyebrow="Overemployment record" title="Guilty Pleasure Map">
-        Songs that defy their playlist context — appearing in one mood's territory while moonlighting in its opposite.
+      <PvTop sub="Song World" pill="Context ledger" />
+      <PvHero eyebrow="Cross-context record" title="Context Switchers">
+        Compare tracks that appear in one keyword-defined playlist context and in its declared counterpart.
       </PvHero>
 
       <div className="max-w-6xl">
@@ -75,32 +79,32 @@ export default function GuiltyPleasureMap() {
           <div className="pv-panel grid place-items-center" style={{ minHeight: 320 }}>
             <div className="text-center">
               <LottiePlayer src="/assets/audio-wave.json" className="w-48 h-24 mx-auto" />
-              <p className="mt-2 text-[var(--text-mid)]">Scanning {mood} playlists for contradictions…</p>
+              <p className="mt-2 text-[var(--text-mid)]">Scanning {mood} playlists for shared tracks…</p>
             </div>
           </div>
         )}
 
         {error && !loading && (
           <div className="pv-panel text-center" style={{ padding: 40 }}>
-            <p className="text-[var(--text-mid)]">Couldn't load contradiction data for {mood} playlists.</p>
+            <p className="text-[var(--text-mid)]">Couldn’t load context-comparison data for {mood} playlists.</p>
             <button onClick={load} className="pv-link mt-4 inline-block px-6" style={{ color: accent }}>Try again</button>
           </div>
         )}
 
         {!loading && !error && (
           <div className="grid grid-cols-1 xl:grid-cols-[330px_minmax(0,1fr)] gap-4 items-start">
-            <PvPanel label={selected ? 'Selected track' : 'Contradiction key'} className="atlas-rise" style={{ '--i': 0 }}>
+            <PvPanel label={selected ? 'Selected track' : 'Context key'} className="atlas-rise" style={{ '--i': 0 }}>
               {selected ? (
                 <>
                   <p className="text-[var(--text-hi)] text-xl font-bold">{selected.title}</p>
                   <p className="text-[var(--text-mid)] text-sm">{selected.artist}</p>
                   <div className="mt-4 space-y-1 text-sm text-[var(--text-mid)]">
                     <div>Appears in <strong style={{ color: accent }}>{selected.mood_appearances}</strong> {mood} playlists</div>
-                    <div>Also in <strong style={{ color: '#FF7A9C' }}>{selected.contrary_appearances}</strong> contrary playlists</div>
-                    <div>Contradiction score: <strong className="text-[var(--text-hi)]">{selected.contradiction_score.toFixed(2)}×</strong></div>
+                    <div>Also in <strong style={{ color: '#FF7A9C' }}>{selected.contrary_appearances}</strong> comparison-context playlists</div>
+                    <div>Context ratio: <strong className="text-[var(--text-hi)]">{selected.contradiction_score.toFixed(2)}×</strong></div>
                   </div>
                   <div className="mt-5">
-                    <Bar label="contrary pull" value={(selected.contrary_appearances / maxContra) * 100} color="#FF7A9C" />
+                    <Bar label="comparison-context pull" value={(selected.contrary_appearances / maxContra) * 100} color="#FF7A9C" />
                     <Bar label={`${mood} presence`} value={(selected.mood_appearances / maxMood) * 100} color={accent} />
                   </div>
                 </>
@@ -116,7 +120,7 @@ export default function GuiltyPleasureMap() {
               )}
             </PvPanel>
 
-            <PvPanel label={`${mood} contradictions — ${data?.tracks?.length ?? '…'} tracks`} className="atlas-rise" style={{ '--i': 1 }}>
+            <PvPanel label={`${mood} context switchers — ${data?.tracks?.length ?? '…'} tracks`} className="atlas-rise" style={{ '--i': 1 }}>
               {data?.tracks?.length > 0 ? (
                 <div className="space-y-px">
                   {data.tracks.map((t, i) => (
@@ -141,7 +145,7 @@ export default function GuiltyPleasureMap() {
                   ))}
                 </div>
               ) : (
-                <p className="text-[var(--text-low)] text-sm">No contradictions found for this mood.</p>
+                <p className="text-[var(--text-low)] text-sm">No cross-context tracks were found for this title group.</p>
               )}
             </PvPanel>
           </div>

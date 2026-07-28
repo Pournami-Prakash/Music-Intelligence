@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom'
 import LottiePlayer from '../components/LottiePlayer'
 import { CountUp } from '../components/Observatory'
 import { PvPage, PvTop, PvHero, PvSearch, PvChips, PvPanel } from '../components/Premium'
+import { ErrorSignal } from '../components/SignalState'
 import { errorMessage, getJson } from '../lib/api'
 
 const ACCENT = '#FB923C'
@@ -12,6 +13,7 @@ export default function TrendExplorer() {
   const [query, setQuery] = useState('')
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const location = useLocation()
 
   useEffect(() => {
@@ -23,6 +25,7 @@ export default function TrendExplorer() {
     if (!q?.trim()) return
     setLoading(true)
     setResult(null)
+    setError(null)
     try {
       const data = await getJson(`/api/trend-explorer/${encodeURIComponent(q.trim())}`)
       setResult({
@@ -34,7 +37,7 @@ export default function TrendExplorer() {
         related: data.related || [],
       })
     } catch (e) {
-      setResult({ term: q, count: 0, pct: 0, theme: '', variants: [], related: [], _demo: true, _error: errorMessage(e) })
+      setError(errorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -60,7 +63,7 @@ export default function TrendExplorer() {
           </div>
         )}
 
-        {!result && !loading && (
+        {!result && !loading && !error && (
           <div className="pv-panel grid place-items-center" style={{ minHeight: 300 }}>
             <div className="text-center max-w-md">
               <LottiePlayer src="/assets/letters.lottie" className="w-40 h-40 mx-auto" />
@@ -69,9 +72,9 @@ export default function TrendExplorer() {
           </div>
         )}
 
-        {result && !loading && (
+        {error && !loading && <ErrorSignal detail={error} onRetry={() => search(query)}>We couldn’t look up this playlist-title term.</ErrorSignal>}
+        {result && !loading && !error && (
           <div className="space-y-4">
-            {result._demo && <p className="text-xs text-[var(--warning)]">Sample data — {result._error || 'live endpoint unavailable'}.</p>}
             <PvPanel className="atlas-rise" style={{ '--i': 0 }}>
               <p className="font-extrabold leading-[0.82] tracking-[-0.06em] text-[var(--text-hi)] break-words" style={{ fontSize: 'clamp(52px, 10vw, 120px)' }}>“{result.term}”</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-6 max-w-2xl">

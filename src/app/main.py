@@ -107,6 +107,8 @@ def _startup_warmup():
             _load_computed("computed/artist_stats.parquet")
             local_parquet("computed/artist_ubiquity_lookup.parquet")
             local_parquet("embeddings/track2vec_vocab_lookup.parquet")
+            local_parquet("computed/artist_edges.parquet")
+            local_parquet("enrichment/listenbrainz_lookup.parquet")
             stats.set_warm_state("ready")
         except Exception as exc:
             print(f"  [warmup] failed: {exc}", flush=True)

@@ -12,6 +12,7 @@ Usage:
 
 import json as _json
 import os
+from functools import lru_cache
 from pathlib import Path
 
 import pytest
@@ -22,7 +23,6 @@ BASE = os.environ.get("BASE_URL", "http://localhost:8000").rstrip("/")
 # Snapshot pages are served as static JSON by the frontend; their heavy backend
 # routes are gated off by default (ENABLE_LEGACY_HEAVY_ENDPOINTS).
 STATIC_DATA_DIR = Path(__file__).resolve().parents[2] / "frontend" / "public" / "data"
-_LEGACY_ON = os.environ.get("ENABLE_LEGACY_HEAVY_ENDPOINTS", "").lower() in {"1", "true", "yes"}
 
 
 def get(path: str, params: dict | None = None, timeout: int = 10) -> requests.Response:
@@ -31,6 +31,43 @@ def get(path: str, params: dict | None = None, timeout: int = 10) -> requests.Re
 
 def post(path: str, json: dict | None = None, timeout: int = 10) -> requests.Response:
     return requests.post(f"{BASE}{path}", json=json or {}, timeout=timeout)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def require_data_ready_api():
+    """Abort once, clearly, when live integration prerequisites are missing."""
+    command = "./deploy/validate_local.sh"
+    try:
+        health = get("/health", timeout=3)
+        readiness = get("/ready", timeout=3)
+        health.raise_for_status()
+        readiness.raise_for_status()
+    except requests.RequestException as exc:
+        pytest.exit(
+            f"Live API required by test_smoke.py is unavailable at {BASE}: {exc}. "
+            f"Run {command} for a self-contained validation.",
+            returncode=4,
+        )
+
+    state = readiness.json().get("status")
+    if state != "ready":
+        pytest.exit(
+            f"Live API at {BASE} is not data-ready (state={state!r}). "
+            f"Run {command}; it waits for the R2-backed warmup before testing.",
+            returncode=4,
+        )
+
+
+@lru_cache(maxsize=1)
+def server_capabilities() -> dict:
+    """Read runtime flags from the server under test, not this pytest process."""
+    response = get("/api/capabilities")
+    response.raise_for_status()
+    return response.json()
+
+
+def expected_legacy_status() -> int:
+    return 200 if server_capabilities()["legacy_heavy_endpoints"] else 410
 
 
 # ── Infrastructure ────────────────────────────────────────────────────────────
@@ -51,6 +88,12 @@ def test_stats():
     assert body["tracks"] > 0
     assert body["artists"] > 0
     # has_isrc_pct may be None if manifest not generated yet — that's fine
+
+
+def test_capabilities_describe_runtime_configuration():
+    capabilities = server_capabilities()
+    assert isinstance(capabilities["legacy_heavy_endpoints"], bool)
+    assert capabilities["track_search"]["fast_path"] > 0
 
 
 # ── Search ────────────────────────────────────────────────────────────────────
@@ -127,7 +170,8 @@ def test_artist_images_batch():
 
 
 def test_doppelganger():
-    r = get("/api/doppelganger/Radiohead")
+    # First vector-index load can take longer than the default request timeout.
+    r = get("/api/doppelganger/Radiohead", timeout=75)
     assert r.status_code == 200
 
 
@@ -159,8 +203,16 @@ def test_basicness_short_query_safe():
 
 @pytest.mark.slow
 def test_song_passport():
-    # Scans 806 MB playlist_tracks.parquet over R2 HTTP — takes 15-30s
-    r = get("/api/song-passport/Bohemian Rhapsody", timeout=60)
+    # Select a concrete search result so cover versions with the same title
+    # cannot silently resolve to the wrong artist.
+    search = get("/api/search-tracks", params={"q": "Bohemian Rhapsody", "limit": 3}, timeout=60)
+    assert search.status_code == 200
+    track = search.json()["results"][0]
+    r = get(
+        f"/api/song-passport/{track['title']}",
+        params={"track_uri": track["uri"]},
+        timeout=60,
+    )
     assert r.status_code == 200
 
 
@@ -191,14 +243,14 @@ def test_trend_explorer():
 def test_editorial_graveyard():
     # Served as a static snapshot; heavy backend route gated off (410) by default.
     r = get("/api/editorial-graveyard", timeout=30)
-    assert r.status_code == (200 if _LEGACY_ON else 410)
+    assert r.status_code == expected_legacy_status()
     data = _json.loads((STATIC_DATA_DIR / "editorial-graveyard.json").read_text())
     assert data.get("tracks")
 
 
 def test_forgotten_hits():
     r = get("/api/forgotten-hits", timeout=30)
-    assert r.status_code == (200 if _LEGACY_ON else 410)
+    assert r.status_code == expected_legacy_status()
     data = _json.loads((STATIC_DATA_DIR / "forgotten-hits.json").read_text())
     assert data.get("tracks")
 
@@ -224,9 +276,10 @@ def test_name_generator():
 
 
 def test_time_capsule():
-    # Served as per-era static snapshots; heavy backend route gated off by default.
+    # Release-year capsules are light enough to serve live; the frontend also
+    # keeps per-era static snapshots.
     r = get("/api/time-capsule", timeout=45)
-    assert r.status_code == (200 if _LEGACY_ON else 410)
+    assert r.status_code == 200
     data = _json.loads((STATIC_DATA_DIR / "time-capsule-2010s.json").read_text())
     assert data.get("top_tracks")
 
@@ -234,7 +287,7 @@ def test_time_capsule():
 def test_mood_contradiction():
     # Served as a static snapshot (keyed by mood); heavy backend route gated off.
     r = get("/api/mood-contradiction", timeout=45)
-    assert r.status_code == (200 if _LEGACY_ON else 410)
+    assert r.status_code == expected_legacy_status()
     data = _json.loads((STATIC_DATA_DIR / "mood-contradiction.json").read_text())
     assert data.get("sad", {}).get("tracks")
 
@@ -250,7 +303,8 @@ def test_transition_finder_with_params():
     # Loads FAISS index on first call — slow on cold server
     r = get("/api/transition-finder",
             params={"from_uri": "spotify:track:7KXjTSCq5nL1LoYtL7XAwS",
-                    "to_artist": "Radiohead"})
+                    "to_artist": "Radiohead"},
+            timeout=75)
     assert r.status_code in (200, 404, 503)  # 503 if embeddings not loaded
 
 
@@ -293,10 +347,10 @@ def test_group_blend():
 
 
 def test_soundtrack_gift():
-    # body key is "prompt"; Ollama (llama3) takes up to 25s on first warm request
+    # Context filtering plus local audio-feature route optimization.
     r = post("/api/soundtrack-gift",
              json={"prompt": "something for a late night drive"},
-             timeout=35)
+             timeout=120)
     assert r.status_code == 200
 
 

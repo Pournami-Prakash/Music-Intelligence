@@ -4,7 +4,8 @@ import { Search } from 'lucide-react'
 import LottiePlayer from '../components/LottiePlayer'
 import { CountUp } from '../components/Observatory'
 import { PvPage, PvTop, PvHero } from '../components/Premium'
-import { errorMessage, getJson } from '../lib/api'
+import { ErrorSignal } from '../components/SignalState'
+import { errorMessage, getJson, readSharedParam, replaceSharedParams } from '../lib/api'
 
 const A_COLOR = '#5AC8FA'
 const B_COLOR = '#FB923C'
@@ -43,21 +44,31 @@ export default function OverlapArena() {
   const [b, setB] = useState('')
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const location = useLocation()
 
   useEffect(() => {
     const s = location.state
-    if (s?.a && s?.b) { setA(s.a); setB(s.b); search(s.a, s.b) }
+    const sharedA = s?.a || readSharedParam('a')
+    const sharedB = s?.b || readSharedParam('b')
+    if (sharedA && sharedB) {
+      setA(sharedA)
+      setB(sharedB)
+      search(sharedA, sharedB)
+    }
   }, [location.state])
 
   const search = async (av, bv) => {
     if (!av?.trim() || !bv?.trim()) return
     setLoading(true)
     setResult(null)
+    setError(null)
     try {
-      setResult(await getJson(`/api/overlap-arena?a=${encodeURIComponent(av)}&b=${encodeURIComponent(bv)}`))
+      const data = await getJson(`/api/overlap-arena?a=${encodeURIComponent(av)}&b=${encodeURIComponent(bv)}`)
+      setResult(data)
+      replaceSharedParams({ a: data.a?.name || av, b: data.b?.name || bv })
     } catch (e) {
-      setResult({ a: { name: av, playlist_count: 0, pct: 0, rank: '—', top_tracks: [] }, b: { name: bv, playlist_count: 0, pct: 0, rank: '—', top_tracks: [] }, shared_playlists: 0, overlap_pct: 0, verdict: 'unknown', _demo: true, _error: errorMessage(e) })
+      setError(errorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -67,10 +78,10 @@ export default function OverlapArena() {
     <PvPage>
       <PvTop sub="Artist Observatory" pill="Overlap arena" />
       <PvHero eyebrow="Comparative dossier" title={result ? `${result.a.name} / ${result.b.name}` : 'Overlap Arena'}>
-        Compare two artists by reach and the share of playlists where their audiences overlap.
+        Compare two artists by reach and the share of the smaller footprint found in the same playlists.
       </PvHero>
 
-      <form className="pv-search" style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) auto' }} onSubmit={e => { e.preventDefault(); search(a, b) }}>
+      <form className="pv-search pv-search-route" onSubmit={e => { e.preventDefault(); search(a, b) }}>
         <div className="pv-search-field"><Search size={15} className="text-[var(--text-low)] shrink-0" /><input value={a} onChange={e => setA(e.target.value)} placeholder="Artist A…" /></div>
         <div className="pv-search-field"><Search size={15} className="text-[var(--text-low)] shrink-0" /><input value={b} onChange={e => setB(e.target.value)} placeholder="Artist B…" /></div>
         <button disabled={!a.trim() || !b.trim() || loading}>{loading ? 'Working…' : 'Compare'}</button>
@@ -90,7 +101,7 @@ export default function OverlapArena() {
           </div>
         )}
 
-        {!result && !loading && (
+        {!result && !loading && !error && (
           <div className="pv-panel grid place-items-center" style={{ minHeight: 300 }}>
             <div className="text-center max-w-md">
               <LottiePlayer src="/assets/no-data.json" className="w-40 h-40 mx-auto" />
@@ -99,9 +110,9 @@ export default function OverlapArena() {
           </div>
         )}
 
-        {result && !loading && (
+        {error && !loading && <ErrorSignal detail={error} onRetry={() => search(a, b)}>We couldn’t compare these artists.</ErrorSignal>}
+        {result && !loading && !error && (
           <div className="space-y-4">
-            {result._demo && <p className="text-xs text-[var(--warning)]">Sample data — {result._error || 'live endpoint unavailable'}.</p>}
             <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_260px_minmax(0,1fr)] gap-4 items-start">
               <Subject data={result.a} color={A_COLOR} label="A" />
 

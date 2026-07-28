@@ -1,116 +1,123 @@
-import { useState } from 'react'
-import { Fingerprint } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Fingerprint, Link2 } from 'lucide-react'
 import LottiePlayer from '../components/LottiePlayer'
 import { PvPage, PvTop, PvHero } from '../components/Premium'
-import { errorMessage, getJson } from '../lib/api'
-
-const SAMPLE = `Blinding Lights
-As It Was
-Levitating
-Anti-Hero
-Flowers
-Kill Bill
-Unholy
-Vampire
-Cruel Summer
-good 4 u`
+import { ErrorSignal } from '../components/SignalState'
+import { errorMessage, getJson, readSharedParam, replaceSharedParams } from '../lib/api'
 
 export default function PlaylistForensics() {
-  const [text, setText] = useState('')
+  const [url, setUrl] = useState('')
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
 
-  const analyze = async () => {
-    const tracks = text.split('\n').map(t => t.trim()).filter(Boolean)
-    if (tracks.length === 0) return
+  const analyze = async (targetUrl = url) => {
+    if (!targetUrl.trim()) return
     setLoading(true)
     setResult(null)
+    setError(null)
     try {
-      setResult(await getJson('/api/forensics', {
+      const data = await getJson('/api/forensics', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tracks }),
-      }))
+        body: JSON.stringify({ playlist_url: targetUrl.trim() }),
+      })
+      setResult(data)
+      replaceSharedParams({ playlist: targetUrl.trim() })
     } catch (e) {
-      setResult({ organic_pct: 0, editorial_pct: 0, verdict: 'error', verdict_detail: `Live endpoint unavailable — ${errorMessage(e)}.`, signals: [], _demo: true })
+      setError(errorMessage(e))
     } finally {
       setLoading(false)
     }
   }
 
-  const organic = result ? Math.round(result.organic_pct) : 0
+  useEffect(() => {
+    const sharedPlaylist = readSharedParam('playlist')
+    if (sharedPlaylist) {
+      setUrl(sharedPlaylist)
+      analyze(sharedPlaylist)
+    }
+  }, [])
+
+  const outside = result ? Math.round(result.outside_reference_pct ?? result.organic_pct) : 0
   const editorial = result ? Math.round(result.editorial_pct) : 0
-  const verdictColor = organic > 50 ? '#3DDC97' : '#FF7A9C'
+  const verdictColor = editorial < 40 ? '#3DDC97' : '#FF7A9C'
 
   return (
     <PvPage>
-      <PvTop sub="Deep Map" pill="Curation forensics" />
-      <PvHero eyebrow="Curation forensics" title="Playlist Forensics">
-        Paste a playlist's track titles (one per line) and inspect whether the selection looks organic or editorial-heavy.
+      <PvTop sub="Deep Map" pill="Reference comparison" />
+      <PvHero eyebrow="Editorial reference" title="Editorial Overlap">
+        Paste a public Spotify playlist link. The atlas imports its tracks and measures how much of the selection appears in Spotify editorial playlists.
       </PvHero>
 
       <div className="max-w-6xl space-y-4">
-        <div className="pv-panel">
-          <div className="flex items-center justify-between mb-3">
-            <p className="pv-panel-label" style={{ marginBottom: 0 }}>Track list</p>
-            <button onClick={() => setText(SAMPLE)} className="text-xs text-[var(--text-mid)] hover:text-[var(--text-hi)]">Load sample</button>
+        <form className="pv-search" onSubmit={e => { e.preventDefault(); analyze() }}>
+          <div className="flex min-w-0 flex-1 items-center gap-3 px-4">
+            <Link2 size={17} className="shrink-0 text-[var(--text-low)]" />
+            <input
+              value={url}
+              onChange={e => setUrl(e.target.value)}
+              placeholder="https://open.spotify.com/playlist/…"
+              maxLength={2048}
+              aria-label="Public Spotify playlist link"
+              className="min-w-0 flex-1 bg-transparent text-[var(--text-hi)] outline-none placeholder:text-[var(--text-low)]"
+            />
           </div>
-          <textarea
-            value={text}
-            onChange={e => setText(e.target.value)}
-            placeholder={"One track title per line…\nBlinding Lights\nAs It Was\nLevitating"}
-            rows={6}
-            className="w-full rounded-xl bg-black/25 border border-[var(--hairline)] px-4 py-3 text-sm text-[var(--text-hi)] placeholder:text-[var(--text-low)] outline-none focus:border-[color:var(--accent)] transition-colors resize-none"
-          />
-          <button
-            onClick={analyze}
-            disabled={!text.trim() || loading}
-            className="mt-4 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold disabled:opacity-40"
-            style={{ background: 'var(--accent)', color: '#04140D' }}
-          >
-            <Fingerprint size={15} />{loading ? 'Inspecting…' : 'Analyze'}
+          <button disabled={!url.trim() || loading}>
+            <Fingerprint size={15} /> {loading ? 'Importing…' : 'Inspect playlist'}
           </button>
-        </div>
+        </form>
 
         {loading && (
           <div className="pv-panel grid place-items-center" style={{ minHeight: 240 }}>
-            <div className="text-center"><LottiePlayer src="/assets/formula-pulse.json" className="w-36 h-36 mx-auto" /><p className="mt-2 text-[var(--text-mid)]">Scoring against editorial density…</p></div>
+            <div className="text-center"><LottiePlayer src="/assets/formula-pulse.json" className="w-36 h-36 mx-auto" /><p className="mt-2 text-[var(--text-mid)]">Importing the playlist and checking editorial overlap…</p></div>
           </div>
         )}
 
-        {result && !loading && (
-          <div className="grid grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)] gap-4 items-start">
-            <div className="pv-panel atlas-rise" style={{ '--i': 0 }}>
-              <p className="pv-panel-label">Verdict</p>
-              {result._demo && <p className="mb-3 text-xs text-[var(--warning)]">{result.verdict_detail}</p>}
-              <p className="text-2xl font-bold capitalize" style={{ color: verdictColor }}>{String(result.verdict || '').replace(/_/g, ' ')}</p>
-              <div className="mt-5 space-y-3">
-                <div>
-                  <div className="flex justify-between text-sm mb-1.5"><span className="text-[var(--text-mid)]">organic</span><span style={{ color: '#3DDC97' }}>{organic}%</span></div>
-                  <div className="h-1.5 rounded-full bg-white/10 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${organic}%`, background: '#3DDC97' }} /></div>
-                </div>
-                <div>
-                  <div className="flex justify-between text-sm mb-1.5"><span className="text-[var(--text-mid)]">editorial</span><span style={{ color: '#FF7A9C' }}>{editorial}%</span></div>
-                  <div className="h-1.5 rounded-full bg-white/10 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${editorial}%`, background: '#FF7A9C' }} /></div>
+        {error && !loading && (
+          <ErrorSignal detail={error} onRetry={() => analyze()}>
+            We couldn’t inspect this playlist.
+          </ErrorSignal>
+        )}
+
+        {result && !loading && !error && (
+          <>
+            <p className="atlas-coverage-note">
+              {result.playlist_name ? `Analysing “${result.playlist_name}”. ` : ''}
+              This score measures track overlap with Spotify editorial playlists; it does not identify who personally curated the playlist.
+            </p>
+            <div className="grid grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)] gap-4 items-start">
+              <div className="pv-panel atlas-rise" style={{ '--i': 0 }}>
+                <p className="pv-panel-label">Editorial overlap</p>
+                <p className="text-2xl font-bold capitalize" style={{ color: verdictColor }}>{String(result.verdict || '').replace(/_/g, ' ')}</p>
+                <div className="mt-5 space-y-3">
+                  <div>
+                    <div className="flex justify-between text-sm mb-1.5"><span className="text-[var(--text-mid)]">not observed in reference set</span><span style={{ color: '#3DDC97' }}>{outside}%</span></div>
+                    <div className="h-1.5 rounded-full bg-white/10 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${outside}%`, background: '#3DDC97' }} /></div>
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-sm mb-1.5"><span className="text-[var(--text-mid)]">editorial overlap</span><span style={{ color: '#FF7A9C' }}>{editorial}%</span></div>
+                    <div className="h-1.5 rounded-full bg-white/10 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${editorial}%`, background: '#FF7A9C' }} /></div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="pv-panel atlas-rise" style={{ '--i': 1 }}>
-              <p className="pv-panel-label">Signal explanation</p>
-              {!result._demo && <p className="text-[var(--text-mid)] leading-relaxed">{result.verdict_detail}</p>}
-              {result.signals?.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5">
-                  {result.signals.map(s => (
-                    <div key={s.label} className="pv-cell">
-                      <small>{s.label}</small>
-                      <strong>{s.value}</strong>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <div className="pv-panel atlas-rise" style={{ '--i': 1 }}>
+                <p className="pv-panel-label">Evidence</p>
+                <p className="text-[var(--text-mid)] leading-relaxed">{result.verdict_detail}</p>
+                {result.signals?.length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5">
+                    {result.signals.map(s => (
+                      <div key={s.label} className="pv-cell">
+                        <small>{s.label}</small>
+                        <strong>{String(s.value)}</strong>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          </>
         )}
       </div>
     </PvPage>

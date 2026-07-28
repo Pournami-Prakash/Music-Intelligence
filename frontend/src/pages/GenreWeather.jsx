@@ -1,40 +1,47 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle } from 'lucide-react'
 import LottiePlayer from '../components/LottiePlayer'
 import { PvPage, PvTop, PvHero, PvPanel } from '../components/Premium'
+import { ErrorSignal } from '../components/SignalState'
 import { errorMessage } from '../lib/api'
-
-const DRIFTS = ['atlas-drift-1', 'atlas-drift-2', 'atlas-drift-3', 'atlas-drift-4']
-
-// Fallback if the endpoint is unreachable — keeps the page from breaking.
-const FALLBACK = [
-  { id: 'hyperpop', label: 'Hyperpop', color: '#FB923C', track_count: 90000, cx: 4, cy: 4 },
-  { id: 'phonk', label: 'Phonk', color: '#3DDC97', track_count: 60000, cx: 12, cy: 8 },
-  { id: 'shoegaze', label: 'Shoegaze', color: '#5AC8FA', track_count: 30000, cx: 16, cy: 3 },
-  { id: 'punk', label: 'Punk revival', color: '#FF7A9C', track_count: 15000, cx: 6, cy: 12 },
-]
 
 export default function GenreWeather() {
   const [genres, setGenres] = useState(null)
-  const [demo, setDemo] = useState(false)
+  const [selectedId, setSelectedId] = useState(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
     fetch('/data/genre-weather.json')
       .then(r => r.ok ? r.json() : Promise.reject(new Error('unreachable')))
       .then(d => {
-        if (d.genres?.length) setGenres(d.genres)
-        else { setGenres(FALLBACK); setDemo(true); setError('empty genre list') }
+        if (d.genres?.length) {
+          setGenres(d.genres)
+          setSelectedId(d.genres[0].id)
+        }
+        else { setError('The genre projection contains no readable regions.') }
       })
-      .catch(e => { setGenres(FALLBACK); setDemo(true); setError(errorMessage(e)) })
+      .catch(e => {
+        setError(errorMessage(e))
+      })
   }, [])
+
+  if (error) {
+    return (
+      <PvPage>
+        <PvTop sub="Deep Map" pill="Static projection" />
+        <PvHero eyebrow="Playlist-cluster proximity" title="Genre Neighborhoods">
+          See which genre clusters appear near each other in the corpus.
+        </PvHero>
+        <div className="max-w-6xl"><ErrorSignal detail={error}>We couldn’t load the genre projection.</ErrorSignal></div>
+      </PvPage>
+    )
+  }
 
   if (!genres) {
     return (
       <PvPage>
-        <PvTop sub="Deep Map" pill="Weather system" />
-        <PvHero eyebrow="Genre pressure map" title="Genre Weather">
-          Read genres as moving systems — drift, pressure, cooling regions, and merge fronts across playlist culture.
+        <PvTop sub="Deep Map" pill="Static projection" />
+        <PvHero eyebrow="Playlist-cluster proximity" title="Genre Neighborhoods">
+          See which genre clusters appear near each other in the corpus.
         </PvHero>
         <div className="pv-panel max-w-6xl grid place-items-center" style={{ minHeight: 360 }}>
           <div className="text-center">
@@ -67,89 +74,104 @@ export default function GenreWeather() {
   const py = g => 9 + ((g.cy - minY) / (maxY - minY || 1)) * 82
   const size = g => 68 + Math.sqrt(g.track_count / maxT) * 176
 
-  // Real "merge front": the closest pair of large genres in the map.
-  let front = null, best = Infinity
-  for (let i = 0; i < shown.length; i++) {
-    for (let j = i + 1; j < shown.length; j++) {
-      const d = Math.hypot(shown[i].cx - shown[j].cx, shown[i].cy - shown[j].cy)
-      if (d < best) { best = d; front = [shown[i], shown[j]] }
-    }
-  }
-
   const metrics = shown.slice(0, 6)
+  const selected = shown.find(genre => genre.id === selectedId) || shown[0]
+  const neighbors = shown
+    .filter(genre => genre.id !== selected.id)
+    .map(genre => ({ ...genre, distance: Math.hypot(genre.cx - selected.cx, genre.cy - selected.cy) }))
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, 5)
 
   return (
     <PvPage>
-      <PvTop sub="Deep Map" pill="Weather system" />
-      <PvHero eyebrow="Genre pressure map" title="Genre Weather">
-        Read genres as moving systems — drift, pressure, and merge fronts across {genres.length} genre regions of playlist culture.
+      <PvTop sub="Deep Map" pill="Static projection" />
+      <PvHero eyebrow="Playlist-cluster proximity" title="Genre Neighborhoods">
+        Compare {genres.length} genre regions by relative position, track evidence, and nearest neighbors.
       </PvHero>
 
-      {demo && <p className="max-w-6xl mb-3 text-xs text-[var(--warning)]">Showing sample data — {error || 'live endpoint unavailable'}.</p>}
-
       <div className="max-w-6xl grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px] gap-4">
-        <PvPanel label="Pressure field" className="atlas-rise" style={{ '--i': 0 }}>
-          <div className="pv-weather">
-            {front && (
-              <div className="absolute left-6 top-5 z-10 flex items-center gap-3" style={{ color: front[0].color }}>
-                <AlertTriangle size={22} />
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.16em] font-semibold">Merge front</p>
-                  <p className="text-[var(--text-hi)] text-lg font-bold">{front[0].label} / {front[1].label}</p>
-                </div>
-              </div>
-            )}
-
+        <PvPanel label="Genre projection" className="atlas-rise" style={{ '--i': 0 }}>
+          <div className="mb-4 grid grid-cols-3 gap-3 text-[10px] text-[var(--text-low)]">
+            <span><b className="text-[var(--text-hi)]">Position</b><br />relative cluster proximity</span>
+            <span><b className="text-[var(--text-hi)]">Marker size</b><br />track count</span>
+            <span><b className="text-[var(--text-hi)]">Direction</b><br />not independently meaningful</span>
+          </div>
+          <div className="genre-projection" aria-label="Genre-cluster projection">
+            <span className="genre-axis genre-axis-x">Projection dimension 1</span>
+            <span className="genre-axis genre-axis-y">Projection dimension 2</span>
             {shown.map((g, i) => {
-              const s = size(g)
+              const s = Math.min(30, Math.max(9, size(g) / 8))
+              const isSelected = selected.id === g.id
               return (
-                <div
+                <button
                   key={g.id}
-                  className="pv-front"
+                  className={`genre-point ${isSelected ? 'is-selected' : ''}`}
+                  onClick={() => setSelectedId(g.id)}
+                  aria-label={`${g.label}, ${g.track_count.toLocaleString()} tracks`}
+                  aria-pressed={isSelected}
                   style={{
-                    width: s, height: s, top: `${py(g)}%`, left: `${px(g)}%`, transform: 'translate(-50%,-50%)',
-                    background: `radial-gradient(circle at 40% 35%, ${g.color}55, ${g.color}12 55%, transparent 72%)`,
-                    boxShadow: `inset 0 0 60px ${g.color}33`,
-                    animation: `${DRIFTS[i % 4]} ${16 + (i % 5) * 3}s ease-in-out infinite`,
+                    top: `${py(g)}%`,
+                    left: `${px(g)}%`,
+                    '--point-color': g.color,
+                    '--point-size': `${s}px`,
                   }}
                 >
-                  <span className="pv-front-ring" style={{ inset: 0, border: `1px solid ${g.color}55` }} />
-                  {s > 108 && <span style={{ color: g.color }}>{g.label}</span>}
-                </div>
+                  <i />
+                  {(i < 10 || isSelected) && <span>{g.label}</span>}
+                </button>
               )
             })}
           </div>
         </PvPanel>
 
         <div className="space-y-4">
-          <PvPanel label="System pressure" className="atlas-rise" style={{ '--i': 1 }}>
-            <div className="space-y-4">
-              {metrics.map(g => (
-                <div key={g.id}>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="text-[var(--text-hi)]">{g.label}</span>
-                    <span className="text-[var(--text-mid)]">{(g.track_count / 1000).toFixed(0)}k</span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: `${(g.track_count / maxT) * 100}%`, background: g.color }} />
-                  </div>
-                </div>
+          <PvPanel label="Selected neighborhood" className="atlas-rise" style={{ '--i': 1 }}>
+            <p className="text-xl font-bold" style={{ color: selected.color }}>{selected.label}</p>
+            <div className="grid grid-cols-2 gap-3 mt-4 pb-4 border-b border-[var(--hairline)]">
+              <div>
+                <b className="block text-lg text-[var(--text-hi)]">{selected.track_count.toLocaleString()}</b>
+                <small className="text-[10px] uppercase tracking-wider text-[var(--text-low)]">tracks</small>
+              </div>
+              <div>
+                <b className="block text-lg text-[var(--text-hi)]">{selected.cluster_count ?? '—'}</b>
+                <small className="text-[10px] uppercase tracking-wider text-[var(--text-low)]">clusters</small>
+              </div>
+            </div>
+            <p className="mt-4 mb-2 text-[9px] uppercase tracking-[0.14em] text-[var(--text-low)]">Nearest plotted genres</p>
+            <div>
+              {neighbors.map((genre, index) => (
+                <button
+                  key={genre.id}
+                  onClick={() => setSelectedId(genre.id)}
+                  className="w-full flex items-center justify-between py-2 border-b border-[var(--hairline)] text-left"
+                >
+                  <span className="text-sm text-[var(--text-mid)]">{index + 1}. {genre.label}</span>
+                  <span className="text-[10px] text-[var(--text-low)]">{genre.distance.toFixed(2)} units</span>
+                </button>
               ))}
             </div>
           </PvPanel>
 
-          <PvPanel label="Region ledger" className="atlas-rise" style={{ '--i': 2 }}>
-            <div className="space-y-px">
-              {shown.slice(0, 8).map(g => (
-                <div key={g.id} className="flex justify-between items-center py-2.5 border-b border-[var(--hairline)] last:border-0">
-                  <span className="flex items-center gap-2 text-[var(--text-hi)] text-sm">
-                    <span style={{ width: 8, height: 8, borderRadius: 999, background: g.color }} />
-                    {g.label}
-                  </span>
-                  <span className="text-xs text-[var(--text-low)]">{g.cluster_count ?? '—'} clusters</span>
-                </div>
+          <PvPanel label="Largest evidence bases" className="atlas-rise" style={{ '--i': 2 }}>
+            <div className="space-y-3">
+              {metrics.map(g => (
+                <button key={g.id} onClick={() => setSelectedId(g.id)} className="w-full text-left">
+                  <div className="flex justify-between text-sm mb-1.5">
+                    <span className="text-[var(--text-hi)]">{g.label}</span>
+                    <span className="text-[var(--text-mid)]">{g.track_count.toLocaleString()}</span>
+                  </div>
+                  <div className="h-1 bg-white/10 overflow-hidden">
+                    <div className="h-full" style={{ width: `${(g.track_count / maxT) * 100}%`, background: g.color }} />
+                  </div>
+                </button>
               ))}
             </div>
+          </PvPanel>
+
+          <PvPanel label="Interpretation limit" className="atlas-rise" style={{ '--i': 3 }}>
+            <p className="text-xs leading-relaxed text-[var(--text-mid)]">
+              This is a static projection. Nearby points share cluster context, but the axes do not represent tempo, mood, popularity, or change over time.
+            </p>
           </PvPanel>
         </div>
       </div>

@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useLocation } from 'react-router-dom'
 import LottiePlayer from '../components/LottiePlayer'
+import ShareResult from '../components/ShareResult'
 import TrackAutocomplete from '../components/TrackAutocomplete'
 import { PvPage, PvTop, PvHero, PvPanel } from '../components/Premium'
-import { apiUrl, errorMessage, getJson } from '../lib/api'
+import { apiUrl, errorMessage, getJson, readSharedParam } from '../lib/api'
 
 const BRIDGE_COLORS = ['#5AC8FA', '#3DDC97', '#B08CF8', '#FB923C', '#22D3EE']
 const EXAMPLES = [
@@ -52,14 +53,17 @@ export default function TransitionFinder() {
 
   useEffect(() => {
     const s = location.state
+    const sharedFrom = readSharedParam('from')
+    const sharedTo = readSharedParam('to')
     if (s?.from && s?.to) loadTitles(s.from, s.to)
+    else if (sharedFrom && sharedTo) loadTitles(sharedFrom, sharedTo)
   }, [location.state, loadTitles])
 
   return (
     <PvPage>
       <PvTop sub="Taste Tunnel" pill="Mix route" />
       <PvHero eyebrow="Transition evidence" title="Transition Finder">
-        Choose two songs. The atlas proposes bridge tracks that make the jump feel natural inside real playlist culture.
+        Choose two songs. The atlas optimizes an ordered three-track path through playlist co-occurrence space.
       </PvHero>
 
       <form className="pv-search pv-search-route" onSubmit={e => { e.preventDefault(); search(fromUri, toUri) }}>
@@ -86,7 +90,7 @@ export default function TransitionFinder() {
           <div className="pv-panel grid place-items-center" style={{ minHeight: 300 }}>
             <div className="text-center">
               <LottiePlayer src="/assets/audio-wave.json" className="w-48 h-24 mx-auto" />
-              <p className="mt-2 text-[var(--text-mid)]" role="status">Finding bridge tracks. Long-tail songs use a slower full-vector lookup…</p>
+              <p className="mt-2 text-[var(--text-mid)]" role="status">Building and scoring an ordered route through the interactive vector index…</p>
             </div>
           </div>
         )}
@@ -110,9 +114,10 @@ export default function TransitionFinder() {
 
         {result && !loading && (
           <div className="space-y-4">
-            {result.meta?.query_vectors === 'r2_fallback' && (
-              <p className="atlas-coverage-note">Both query songs came from the full R2 vector table. Bridge candidates currently come from the 10,000-track fast index.</p>
-            )}
+            <p className="atlas-coverage-note">
+              Route score {Math.round((result.route_score || 0) * 100)}% · {result.meta?.candidate_count || 0} candidates · popular 10,000-track index.
+              <ShareResult params={{ from: fromTitle, to: toTitle }} className="ml-3 inline-flex align-middle" />
+            </p>
             <PvPanel label="Mix route" className="atlas-rise" style={{ '--i': 0 }}>
               <div className="grid grid-cols-1 xl:grid-cols-[200px_minmax(0,1fr)_200px] gap-4 items-center">
                 <div className="pv-cell text-center">
@@ -130,6 +135,7 @@ export default function TransitionFinder() {
                           <p className="text-[var(--text-low)] text-[10px] uppercase tracking-[0.16em]">Bridge {i + 1}</p>
                           <p className="text-lg font-bold mt-2 leading-tight" style={{ color: BRIDGE_COLORS[i] }}>{b.title}</p>
                           <p className="text-[var(--text-low)] text-xs mt-1">{b.artist}</p>
+                          <p className="text-[var(--text-low)] text-[10px] mt-2">{Math.round((b.transition_similarity || 0) * 100)}% fit from previous track</p>
                           {b.chart_peak && <p className="text-xs text-[var(--text-mid)] mt-2">Chart peak #{b.chart_peak}</p>}
                         </div>
                       ))}
@@ -138,7 +144,8 @@ export default function TransitionFinder() {
                 </div>
                 <div className="pv-cell text-center">
                   <small style={{ color: '#B08CF8' }}>finish</small>
-                  <strong className="text-base leading-tight mt-1">{toTitle}</strong>
+                  <strong className="text-base leading-tight mt-1">{result.to.title || toTitle}</strong>
+                  <span className="text-xs text-[var(--text-low)]">{result.to.artist}</span>
                 </div>
               </div>
             </PvPanel>

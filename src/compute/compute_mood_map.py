@@ -23,6 +23,7 @@ Usage:
 
 import sys
 import tempfile
+import re
 from pathlib import Path
 
 import duckdb
@@ -102,10 +103,18 @@ def main():
     ).df()
     print(f"  {len(playlists):,} playlists", flush=True)
 
-    # Label each playlist by matching mood keywords
+    # Label each playlist using token/phrase boundaries. Plain substring matching
+    # previously classified "latest" as late-night, "workout" as study ("work"),
+    # and "blackbear" as identity ("black").
     for mood_id, meta in MOOD_KEYWORDS.items():
-        pattern = "|".join(meta["keywords"])
+        pattern = r"(?<!\w)(?:" + "|".join(
+            re.escape(keyword) for keyword in meta["keywords"]
+        ) + r")(?!\w)"
         playlists[mood_id] = playlists["name_lower"].str.contains(pattern, regex=True, na=False)
+
+    mood_columns = list(MOOD_KEYWORDS)
+    unique_matched = int(playlists[mood_columns].any(axis=1).sum())
+    assignment_count = int(playlists[mood_columns].sum().sum())
 
     # Build cluster summary
     records = []
@@ -134,7 +143,13 @@ def main():
         print(f"  {meta['label']:20s}: {count:>8,} playlists ({count/len(playlists)*100:.1f}%)")
 
     result = pd.DataFrame(records).sort_values("count", ascending=False)
-    print(f"\nTotal clustered: {result['count'].sum():,} playlist-category assignments")
+    result["total_playlists"] = len(playlists)
+    result["unique_matched_titles"] = unique_matched
+    result["assignment_count"] = assignment_count
+    result["categories_overlap"] = True
+    result["method_version"] = "bounded-keywords-v2"
+    print(f"\nUnique matched titles: {unique_matched:,}")
+    print(f"Category assignments: {assignment_count:,} (categories may overlap)")
 
     out = _CACHE_DIR / "mood_map_clusters.parquet"
     result.to_parquet(out, index=False, compression="zstd")

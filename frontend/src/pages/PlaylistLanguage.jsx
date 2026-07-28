@@ -1,131 +1,144 @@
-import { useState, useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link2 } from 'lucide-react'
+import LottiePlayer from '../components/LottiePlayer'
 import { PvPage, PvTop, PvHero, PvPanel } from '../components/Premium'
+import { ErrorSignal } from '../components/SignalState'
+import { errorMessage, getJson, readSharedParam, replaceSharedParams } from '../lib/api'
 
-const WORDS = [
-  { word: 'vibes', freq: 94120, cat: 'mood', examples: ['sunday vibes', 'late night vibes', 'beach vibes only'] },
-  { word: 'chill', freq: 87340, cat: 'mood', examples: ['chill study beats', 'chill sunday', 'just chill'] },
-  { word: 'love', freq: 82340, cat: 'mood', examples: ['love songs', 'falling in love', 'old love'] },
-  { word: 'sad', freq: 76230, cat: 'mood', examples: ['sad songs for crying', 'sad bops', 'sad girl fall'] },
-  { word: 'workout', freq: 68930, cat: 'activity', examples: ['gym motivation', 'leg day hits', 'workout energy'] },
-  { word: 'study', freq: 65210, cat: 'activity', examples: ['study focus', 'library hours', 'study with me'] },
-  { word: 'party', freq: 54120, cat: 'activity', examples: ['party classics', 'pregame', 'house party'] },
-  { word: 'summer', freq: 47230, cat: 'time', examples: ['summer nights', 'summer 2016', 'beach summer'] },
-  { word: 'indie', freq: 62140, cat: 'genre', examples: ['indie sleaze', 'indie pop', 'indie roadtrip'] },
-  { word: 'era', freq: 43120, cat: 'identity', examples: ['new era', 'villain era', 'healing era'] },
-]
-
-const CATS = ['all', 'mood', 'activity', 'time', 'identity', 'genre']
 const CAT_COLORS = { mood: '#FF7A9C', activity: '#3DDC97', time: '#5AC8FA', identity: '#B08CF8', genre: '#F5C451' }
 
 export default function PlaylistLanguage() {
-  const [filter, setFilter] = useState('all')
-  const [selected, setSelected] = useState(null)
-  const [words, setWords] = useState(WORDS)
-  const location = useLocation()
+  const [url, setUrl] = useState('')
+  const [result, setResult] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  const analyze = async (targetUrl = url) => {
+    if (!targetUrl.trim()) return
+    setLoading(true)
+    setResult(null)
+    setError(null)
+    try {
+      const data = await getJson('/api/playlist-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playlist_url: targetUrl.trim() }),
+      })
+      setResult(data)
+      replaceSharedParams({ playlist: targetUrl.trim() })
+    } catch (e) {
+      setError(errorMessage(e))
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    if (location.state?.filter) setFilter(location.state.filter)
-    fetch('/data/playlist-language.json')
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (data?.words?.length) {
-          setWords(data.words.map(w => ({ word: w.word, freq: w.freq, cat: w.cat, examples: w.examples || [] })))
-        }
-      })
-      .catch(() => {})
-  }, [location.state])
-
-  const filtered = filter === 'all' ? words : words.filter(w => w.cat === filter)
-  const maxFreq = Math.max(...words.map(w => w.freq), 1)
-  const active = selected || filtered[0]
-  const categoryTotals = Object.keys(CAT_COLORS).map(cat => ({
-    cat, total: words.filter(w => w.cat === cat).reduce((sum, w) => sum + w.freq, 0),
-  }))
-  const maxCat = Math.max(...categoryTotals.map(c => c.total), 1)
+    const sharedPlaylist = readSharedParam('playlist')
+    if (sharedPlaylist) {
+      setUrl(sharedPlaylist)
+      analyze(sharedPlaylist)
+    }
+  }, [])
 
   return (
     <PvPage>
-      <PvTop sub="Vibe Dictionary" pill="1M names" />
-      <PvHero eyebrow="Phrase evidence" title="Playlist Language">
-        Read the public vocabulary of playlists — moods, rituals, time-of-day signals, identity tags, and genre shortcuts.
+      <PvTop sub="Vibe Dictionary" pill="Playlist profile" />
+      <PvHero eyebrow="Playlist evidence" title={result?.playlist?.name || 'Playlist Language'}>
+        Paste a public Spotify playlist to inspect its title vocabulary, artist concentration, and track makeup against the million-playlist corpus.
       </PvHero>
 
-      <div className="max-w-6xl">
-        <div className="flex gap-2 flex-wrap mb-4">
-          {CATS.map(cat => (
-            <button
-              key={cat}
-              onClick={() => setFilter(cat)}
-              className="px-4 py-2 rounded-full text-sm capitalize border transition-colors"
-              style={{
-                borderColor: filter === cat ? '#FB923C' : 'var(--hairline)',
-                background: filter === cat ? '#FB923C22' : 'rgba(255,255,255,0.03)',
-                color: filter === cat ? '#FB923C' : 'var(--text-mid)',
-              }}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-4 items-start">
-          <PvPanel label="Language field" className="atlas-rise" style={{ '--i': 0 }}>
-            <div className="min-h-[420px] flex flex-wrap gap-x-5 gap-y-4 content-center items-baseline justify-center">
-              {filtered.map(w => {
-                const size = 13 + (w.freq / maxFreq) * 34
-                const isActive = active?.word === w.word
-                return (
-                  <button
-                    key={w.word}
-                    onClick={() => setSelected(w)}
-                    className="leading-none transition-transform hover:scale-105"
-                    style={{
-                      fontSize: `${size}px`,
-                      color: isActive ? CAT_COLORS[w.cat] : 'var(--text-hi)',
-                      opacity: active && !isActive ? 0.4 : 0.95,
-                      fontWeight: w.freq > 60000 ? 800 : 600,
-                    }}
-                  >
-                    {w.word}
-                  </button>
-                )
-              })}
-            </div>
-          </PvPanel>
-
-          <div className="space-y-4">
-            <PvPanel label="Selected phrase" className="atlas-rise" style={{ '--i': 1 }}>
-              {active && (
-                <>
-                  <p className="text-3xl font-extrabold tracking-[-0.03em]" style={{ color: CAT_COLORS[active.cat] || 'var(--text-hi)' }}>{active.word}</p>
-                  <p className="text-[var(--text-mid)] text-sm mt-1">{active.freq.toLocaleString()} playlist names · {active.cat}</p>
-                  <div className="mt-4 space-y-2">
-                    {(active.examples?.length ? active.examples : ['No examples in this sample yet']).slice(0, 4).map((ex, i) => (
-                      <p key={`${ex}-${i}`} className="text-sm text-[var(--text-mid)] border-b border-[var(--hairline)] pb-2 last:border-0">
-                        <span className="text-[var(--text-low)] mr-2 font-mono text-xs">{String(i + 1).padStart(2, '0')}</span>{ex}
-                      </p>
-                    ))}
-                  </div>
-                </>
-              )}
-            </PvPanel>
-
-            <PvPanel label="Theme balance" className="atlas-rise" style={{ '--i': 2 }}>
-              {categoryTotals.map(({ cat, total }) => (
-                <div key={cat} className="mb-3 last:mb-0">
-                  <div className="flex justify-between text-sm mb-1.5">
-                    <span className="text-[var(--text-mid)] capitalize">{cat}</span>
-                    <span style={{ color: CAT_COLORS[cat] }}>{Math.round((total / maxCat) * 100)}%</span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: `${(total / maxCat) * 100}%`, background: CAT_COLORS[cat] }} />
-                  </div>
-                </div>
-              ))}
-            </PvPanel>
+      <div className="max-w-6xl space-y-4">
+        <form className="pv-search" onSubmit={e => { e.preventDefault(); analyze() }}>
+          <div className="flex min-w-0 flex-1 items-center gap-3 px-4">
+            <Link2 size={17} className="shrink-0 text-[var(--text-low)]" />
+            <input
+              value={url}
+              onChange={e => setUrl(e.target.value)}
+              placeholder="https://open.spotify.com/playlist/…"
+              maxLength={2048}
+              aria-label="Public Spotify playlist link"
+              className="min-w-0 flex-1 bg-transparent text-[var(--text-hi)] outline-none placeholder:text-[var(--text-low)]"
+            />
           </div>
-        </div>
+          <button disabled={!url.trim() || loading}>{loading ? 'Reading…' : 'Read playlist'}</button>
+        </form>
+
+        {loading && (
+          <div className="pv-panel grid place-items-center" style={{ minHeight: 260 }}>
+            <div className="text-center"><LottiePlayer src="/assets/formula-pulse.json" className="w-36 h-36 mx-auto" /><p className="mt-2 text-[var(--text-mid)]">Importing tracks and profiling the playlist…</p></div>
+          </div>
+        )}
+
+        {error && !loading && (
+          <ErrorSignal detail={error} onRetry={() => analyze()}>
+            We couldn’t read this playlist.
+          </ErrorSignal>
+        )}
+
+        {!result && !loading && !error && (
+          <div className="pv-panel py-16 text-center">
+            <p className="text-[var(--text-hi)] font-semibold">Start with a playlist, not sample data.</p>
+            <p className="mt-2 text-sm text-[var(--text-mid)]">Public Spotify playlists work without signing in.</p>
+          </div>
+        )}
+
+        {result && !loading && !error && (
+          <>
+            {result.playlist.import_mode === 'public_embed_preview' && (
+              <p className="atlas-coverage-note">Spotify exposed a public {result.playlist.track_count}-track preview. These results describe that visible sample, not any hidden remainder.</p>
+            )}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="pv-cell"><small>Tracks read</small><strong>{result.playlist.track_count}</strong></div>
+              <div className="pv-cell"><small>Distinct top artists</small><strong>{result.top_artists.length}</strong></div>
+              <div className="pv-cell"><small>Owner</small><strong className="truncate">{result.playlist.owner || '—'}</strong></div>
+              <div className="pv-cell"><small>Followers</small><strong>{result.playlist.followers?.toLocaleString?.() ?? '—'}</strong></div>
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-4 items-start">
+              <PvPanel label="Artist concentration" className="atlas-rise" style={{ '--i': 0 }}>
+                <div className="space-y-4">
+                  {result.top_artists.map((item, i) => (
+                    <div key={item.artist}>
+                      <div className="mb-1.5 flex items-baseline justify-between gap-4">
+                        <span className="text-sm text-[var(--text-hi)]"><span className="mr-2 font-mono text-xs text-[var(--text-low)]">{String(i + 1).padStart(2, '0')}</span>{item.artist}</span>
+                        <span className="text-xs text-[var(--text-mid)]">{item.tracks} tracks · {item.pct}%</span>
+                      </div>
+                      <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+                        <div className="h-full rounded-full bg-[var(--accent)]" style={{ width: `${Math.max(item.pct, 1)}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </PvPanel>
+
+              <PvPanel label="Title vocabulary" className="atlas-rise" style={{ '--i': 1 }}>
+                {result.title_terms.length ? result.title_terms.map(term => (
+                  <div key={term.word} className="border-b border-[var(--hairline)] py-3 first:pt-0 last:border-0">
+                    <div className="flex items-center justify-between gap-4">
+                      <strong className="text-lg" style={{ color: CAT_COLORS[term.theme] || 'var(--text-hi)' }}>{term.word}</strong>
+                      <span className="text-xs uppercase tracking-wider text-[var(--text-low)]">{term.theme || 'rare / unclassified'}</span>
+                    </div>
+                    <p className="mt-1 text-xs text-[var(--text-mid)]">
+                      {term.known ? `${term.count.toLocaleString()} playlist titles in the corpus` : 'No strong corpus match'}
+                    </p>
+                  </div>
+                )) : <p className="text-sm text-[var(--text-mid)]">The playlist title contains no analyzable words.</p>}
+              </PvPanel>
+            </div>
+
+            <PvPanel label="Imported track evidence" className="atlas-rise" style={{ '--i': 2 }}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+                {result.tracks.map((track, i) => (
+                  <div key={track.uri || `${track.name}-${i}`} className="flex items-baseline gap-3 border-b border-[var(--hairline)] py-3">
+                    <span className="font-mono text-xs text-[var(--text-low)]">{String(i + 1).padStart(2, '0')}</span>
+                    <p className="min-w-0 text-sm text-[var(--text-hi)]"><span className="font-semibold">{track.name}</span><span className="text-[var(--text-mid)]"> — {track.artist}</span></p>
+                  </div>
+                ))}
+              </div>
+            </PvPanel>
+          </>
+        )}
       </div>
     </PvPage>
   )

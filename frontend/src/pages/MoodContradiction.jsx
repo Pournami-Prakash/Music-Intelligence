@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { AlertTriangle } from 'lucide-react'
 import LottiePlayer from '../components/LottiePlayer'
 import { PvPage, PvTop, PvHero, PvPanel } from '../components/Premium'
+import { ErrorSignal } from '../components/SignalState'
 import { errorMessage } from '../lib/api'
 
 const MOODS = [
@@ -17,6 +18,7 @@ export default function MoodContradiction() {
   const [mood, setMood] = useState(null)
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const location = useLocation()
 
   useEffect(() => {
@@ -28,6 +30,7 @@ export default function MoodContradiction() {
     setMood(key)
     setLoading(true)
     setData(null)
+    setError(null)
     try {
       // Precomputed snapshot (frontend/public/data/mood-contradiction.json) —
       // the live GROUP BY is too heavy for the 512 MB backend, so it's served
@@ -35,9 +38,10 @@ export default function MoodContradiction() {
       const res = await fetch('/data/mood-contradiction.json')
       if (!res.ok) throw new Error('snapshot unavailable')
       const all = await res.json()
-      setData(all[key] || { mood: key, contrary_moods: [], mood_playlists: 0, contrary_playlists: 0, tracks: [] })
+      if (!all[key]) throw new Error('No context-comparison evidence exists for this title group.')
+      setData(all[key])
     } catch (e) {
-      setData({ _demo: true, _error: errorMessage(e), mood: key, contrary_moods: [], mood_playlists: 0, contrary_playlists: 0, tracks: [] })
+      setError(errorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -50,9 +54,9 @@ export default function MoodContradiction() {
 
   return (
     <PvPage>
-      <PvTop sub="Song World" pill="Mismatch detector" />
-      <PvHero eyebrow="Intent versus reality" title="Mood Contradiction">
-        Find songs whose playlist context says one emotion while their real public use points somewhere else.
+      <PvTop sub="Song World" pill="Context comparison" />
+      <PvHero eyebrow="Playlist-title evidence" title="Cross-Context Tracks">
+        Find tracks shared by two contrasting, keyword-defined playlist-title contexts.
       </PvHero>
 
       <div className="max-w-6xl">
@@ -77,7 +81,7 @@ export default function MoodContradiction() {
           <div className="pv-panel grid place-items-center" style={{ minHeight: 320 }}>
             <div className="text-center">
               <LottiePlayer src="/assets/audio-wave.json" className="w-48 h-24 mx-auto" />
-              <p className="mt-2 text-[var(--text-mid)]">Comparing playlist intent with song reality…</p>
+              <p className="mt-2 text-[var(--text-mid)]">Comparing playlist-title contexts…</p>
             </div>
           </div>
         )}
@@ -86,14 +90,12 @@ export default function MoodContradiction() {
           <div className="pv-panel grid place-items-center" style={{ minHeight: 320 }}>
             <div className="text-center max-w-md">
               <LottiePlayer src="/assets/no-data.json" className="w-40 h-40 mx-auto" />
-              <p className="mt-2 text-[var(--text-mid)]">Choose an emotional room to reveal songs filed under the wrong feeling.</p>
+              <p className="mt-2 text-[var(--text-mid)]">Choose a title context to see which tracks also appear in its comparison group.</p>
             </div>
           </div>
         )}
 
-        {data?._demo && !loading && (
-          <p className="text-xs text-[var(--warning)] mb-3">Live endpoint unavailable for this mood — {data._error || 'unknown error'}.</p>
-        )}
+        {error && !loading && <ErrorSignal detail={error} onRetry={() => selectMood(mood)}>We couldn’t read this context-comparison set.</ErrorSignal>}
 
         {lead && !loading && (
           <div className="space-y-4">
@@ -115,7 +117,7 @@ export default function MoodContradiction() {
 
                 <div className="flex flex-col justify-between min-h-[300px]">
                   <div>
-                    <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--warning)]">actual reality</p>
+                    <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--warning)]">comparison context</p>
                     <h2 className="mt-3 text-4xl sm:text-5xl font-extrabold tracking-[-0.03em] text-[var(--text-hi)] capitalize">{contraryLabel} rooms</h2>
                     <div className="mt-5 flex items-start gap-3 rounded-xl border p-4" style={{ borderColor: 'var(--warning)', background: 'rgba(245,196,81,0.08)' }}>
                       <AlertTriangle size={18} className="text-[var(--warning)] mt-0.5 shrink-0" />
@@ -126,13 +128,13 @@ export default function MoodContradiction() {
                   </div>
                   <div className="grid grid-cols-2 gap-3 mt-6">
                     <div className="pv-cell"><small>Counter-room hits</small><strong>{lead.contrary_appearances}</strong></div>
-                    <div className="pv-cell"><small>Contradiction</small><strong style={{ color: accent }}>{lead.contradiction_score}×</strong></div>
+                    <div className="pv-cell"><small>Context ratio</small><strong style={{ color: accent }}>{lead.contradiction_score}×</strong></div>
                   </div>
                 </div>
               </div>
             </PvPanel>
 
-            <PvPanel label="Other contradictions" className="atlas-rise" style={{ '--i': 1 }}>
+            <PvPanel label="Other cross-context tracks" className="atlas-rise" style={{ '--i': 1 }}>
               <div className="space-y-px">
                 {data.tracks.slice(1).map(song => (
                   <div key={song.title + song.artist} className="grid grid-cols-[minmax(0,2fr)_1fr_auto] gap-4 items-center py-3 border-b border-[var(--hairline)] last:border-0">

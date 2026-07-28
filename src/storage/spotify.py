@@ -17,8 +17,57 @@ Usage:
 import os
 import time
 import base64
+import html
+import re
 import requests
+from html.parser import HTMLParser
 from typing import Optional
+
+
+class _SpotifyEmbedParser(HTMLParser):
+    """Parse the public Spotify embed's server-rendered 50-track preview."""
+
+    def __init__(self):
+        super().__init__()
+        self.tracks: list[dict] = []
+        self._row: Optional[dict] = None
+        self._field: Optional[str] = None
+
+    def handle_starttag(self, tag, attrs):
+        attr = dict(attrs)
+        testid = attr.get("data-testid", "")
+        if tag == "li" and testid.startswith("tracklist-row-"):
+            self._row = {"name": "", "artist": ""}
+        elif self._row is not None and tag == "h3":
+            self._field = "name"
+        elif self._row is not None and tag == "h4":
+            self._field = "artist"
+
+    def handle_data(self, data):
+        if self._row is not None and self._field:
+            if self._field == "artist" and data.strip() == "E":
+                return
+            self._row[self._field] += data
+
+    def handle_endtag(self, tag):
+        if tag in ("h3", "h4"):
+            self._field = None
+        elif tag == "li" and self._row is not None:
+            name = self._row["name"].strip()
+            artist = self._row["artist"].strip()
+            if name and artist:
+                self.tracks.append({
+                    "id": None,
+                    "uri": None,
+                    "name": html.unescape(name),
+                    "artist": html.unescape(artist),
+                    "artist_id": None,
+                    "album": None,
+                    "duration_ms": None,
+                    "popularity": None,
+                })
+            self._row = None
+            self._field = None
 
 
 class SpotifyClient:
@@ -166,6 +215,35 @@ class SpotifyClient:
                 break
             offset += 100
         return tracks
+
+    def playlist_embed(self, playlist_id: str) -> tuple[dict, list[dict]]:
+        """Read the public, server-rendered playlist preview without user auth.
+
+        Spotify's client-credentials API can refuse public playlists for apps in
+        development mode. The official embed still exposes a 50-track preview,
+        which is enough for an honest profile and density sample.
+        """
+        response = requests.get(
+            f"https://open.spotify.com/embed/playlist/{playlist_id}",
+            timeout=15,
+            headers={"User-Agent": "MusicIntelligenceAtlas/1.0"},
+        )
+        response.raise_for_status()
+        parser = _SpotifyEmbedParser()
+        parser.feed(response.text)
+        if not parser.tracks:
+            raise ValueError("playlist embed contained no readable tracks")
+        name_match = re.search(r'alt="([^"]+) cover"', response.text)
+        name = html.unescape(name_match.group(1)) if name_match else "Spotify playlist"
+        return ({
+            "id": playlist_id,
+            "name": name,
+            "description": "",
+            "public": True,
+            "owner": {},
+            "followers": {},
+            "tracks": {"total": len(parser.tracks)},
+        }, parser.tracks)
 
     # ------------------------------------------------------------------
     # ISRC lookup  — useful for YaMBDa bridge (Phase 3)

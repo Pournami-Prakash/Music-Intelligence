@@ -3,9 +3,8 @@ from typing import Optional
 import pandas as pd
 from fastapi import APIRouter, HTTPException
 
-from src.app.cache import _load_computed, duck_slot
+from src.app.cache import _load_computed, duck_slot, local_parquet, sp
 from src.app.rcache import ttl_cache
-from src.storage.duckdb_r2 import R2_PATH
 from src.app.helpers import _to_list, _extract_playlist_id
 from src.app.models import GroupBlendBody, ForensicsBody
 from src.app.graph import (
@@ -66,14 +65,31 @@ def six_degrees(from_artist: str = "Drake", to_artist: str = "Radiohead", max_de
             for i, name in enumerate(full):
                 shared = None if i == 0 else edge_weight(full[i - 1], name)
                 result.append({"name": name, "shared": shared})
-            return {"from": canon_from, "to": canon_to, "hops": len(full) - 1, "path": result}
+            return {
+                "from": canon_from,
+                "to": canon_to,
+                "hops": len(full) - 1,
+                "path": result,
+                "method": "Bidirectional BFS within each node's 100 strongest neighbors",
+                "evidence": {
+                    "metric": "Fewest hops found in the bounded co-occurrence graph",
+                    "population": "Top-100 neighbor edges per expanded artist",
+                    "source": "Artist playlist co-occurrence graph",
+                    "limitations": ["The path is not guaranteed globally shortest in the full graph"],
+                },
+            }
 
     raise HTTPException(404, detail="no_path_found")
 
 
 @router.post("/api/group-blend")
 def group_blend(body: GroupBlendBody):
-    input_artists = body.artists[:6]
+    return _group_blend_cached(tuple(body.artists[:6]))
+
+
+@ttl_cache(maxsize=128, ttl=1800)
+def _group_blend_cached(input_artist_tuple: tuple[str, ...]):
+    input_artists = list(input_artist_tuple)
     if not input_artists:
         raise HTTPException(400, detail="provide at least one artist in 'artists' list")
 
@@ -92,11 +108,13 @@ def group_blend(body: GroupBlendBody):
     if not resolved:
         raise HTTPException(404, detail="none_of_the_artists_found")
 
-    def neighbors(artist_name: str) -> dict[str, int]:
-        canonical = resolve_artist(artist_name) or artist_name
-        return artist_neighbors(canonical)
-
-    neighbor_maps = [neighbors(a) for a in resolved]
+    # Read every requested neighborhood in one DuckDB pass instead of scanning
+    # the edge parquet once per artist.
+    batched = neighbors_of_many(set(resolved))
+    neighbor_maps = [
+        {neighbor: weight for neighbor, weight in batched.get(artist, [])}
+        for artist in resolved
+    ]
 
     common = set(neighbor_maps[0].keys())
     for nm in neighbor_maps[1:]:
@@ -148,11 +166,12 @@ def group_blend(body: GroupBlendBody):
             break
 
     total_neighbors = len(set().union(*[nm.keys() for nm in neighbor_maps]))
-    compatibility   = round(len(common) / max(total_neighbors, 1) * 100, 1)
+    shared_neighborhood_pct = round(len(common) / max(total_neighbors, 1) * 100, 1)
 
     return {
         "input_artists":     resolved,
-        "compatibility_pct": compatibility,
+        "compatibility_pct": shared_neighborhood_pct,
+        "shared_neighborhood_pct": shared_neighborhood_pct,
         "blend_artists": [
             {"name": a["name"], "playlist_count": a["playlist_count"],
              "blend_score": round(a["blend_score"] / max(scored[0]["blend_score"], 1), 3)}
@@ -160,6 +179,12 @@ def group_blend(body: GroupBlendBody):
         ],
         "tracks":              [{"rank": i + 1, **t} for i, t in enumerate(tracks)],
         "common_ground_count": len(common),
+        "evidence": {
+            "metric": "Shared candidate neighbors divided by the union of input neighborhoods",
+            "population": f"{len(resolved)} resolved input artists",
+            "source": "Artist playlist co-occurrence graph",
+            "limitations": ["This is graph coverage, not interpersonal compatibility"],
+        },
     }
 
 
@@ -209,6 +234,12 @@ def overlap_arena(a: str = "Drake", b: str = "Taylor Swift"):
                             "frequent_companions"   if overlap_pct >= 15 else
                             "occasional_neighbors"  if overlap_pct >= 5  else
                             "parallel_universes",
+        "evidence": {
+            "metric": "Shared playlists divided by the smaller artist footprint",
+            "population": "Playlists containing either input artist",
+            "source": "Artist playlist co-occurrence graph",
+            "limitations": ["Playlist placement is not audience overlap"],
+        },
     }
 
 
@@ -238,12 +269,29 @@ def collision(a: str = "Taylor Swift", b: str = "Kendrick Lamar"):
     neighbors_b  = set(artist_neighbors(name_b).keys())
     bridge_names = (neighbors_a & neighbors_b) - {name_a, name_b}
 
+    # Score the complete intersection. The old code converted the set to a list
+    # and inspected an arbitrary first 100 names, so results varied by process
+    # and could omit the strongest bridge.
+    stats_lookup = stats_df.set_index("artist_name")["playlist_count"].to_dict()
+    neighbors_a_map = artist_neighbors(name_a)
+    neighbors_b_map = artist_neighbors(name_b)
     bridges = []
-    for bname in list(bridge_names)[:100]:
-        br = stats_df[stats_df["artist_name"] == bname]
-        if not br.empty:
-            bridges.append({"name": bname, "playlist_count": int(br.iloc[0]["playlist_count"])})
-    bridges.sort(key=lambda x: -x["playlist_count"])
+    for bname in bridge_names:
+        shared_a = int(neighbors_a_map.get(bname, 0))
+        shared_b = int(neighbors_b_map.get(bname, 0))
+        if not shared_a or not shared_b:
+            continue
+        # Harmonic mean rewards bridges that are strong on both sides instead of
+        # being dominated by a single very popular connection.
+        bridge_score = 2 * shared_a * shared_b / (shared_a + shared_b)
+        bridges.append({
+            "name": bname,
+            "playlist_count": int(stats_lookup.get(bname, 0)),
+            "shared_with_a": shared_a,
+            "shared_with_b": shared_b,
+            "bridge_score": round(bridge_score, 1),
+        })
+    bridges.sort(key=lambda x: (-x["bridge_score"], -x["playlist_count"], x["name"]))
 
     return {
         "a": {"name": name_a, "playlist_count": int(sa["playlist_count"]), "rank": int(sa["rank"])},
@@ -251,6 +299,13 @@ def collision(a: str = "Taylor Swift", b: str = "Kendrick Lamar"):
         "shared_playlists": shared,
         "bridge_artists":   bridges[:8],
         "bridge_count":     len(bridge_names),
+        "method":            "complete_common-neighbor intersection ranked by harmonic mean of both shared-playlist edges",
+        "evidence": {
+            "metric": "Shared playlists with both input artists",
+            "population": "Complete co-occurrence neighborhoods for the two artists",
+            "source": "Artist playlist co-occurrence graph",
+            "limitations": ["Playlist co-placement is not listener or audience overlap"],
+        },
         "verdict": (
             "direct_collision"   if shared >= 10_000 else
             "frequent_proximity" if shared >= 2_000  else
@@ -270,6 +325,8 @@ def forensics(body: ForensicsBody):
         raise HTTPException(503, detail="not_ready")
 
     playlist_id = _extract_playlist_id(url)
+    playlist_name = None
+    import_mode = None
 
     if playlist_id:
         ep_row = ep_df[ep_df["playlist_id"] == playlist_id]
@@ -279,13 +336,14 @@ def forensics(body: ForensicsBody):
                 "playlist_url":   url,
                 "playlist_name":  ep["name"],
                 "organic_pct":    0,
+                "outside_reference_pct": 0,
                 "editorial_pct":  100,
-                "verdict":        "editorial",
+                "verdict":        "known_editorial_playlist",
                 "verdict_detail": (
                     f"This is a known Spotify editorial playlist ({ep['name']}). "
                     f"It contains {int(ep['num_tracks'])} tracks and was first scraped "
                     f"on {ep['date_first_scraped']}. Editorial playlists are curated by "
-                    f"Spotify's in-house team — zero organic signal."
+                    f"Spotify's in-house team."
                 ),
                 "signals": [
                     {"label": "Known editorial playlist", "value": True},
@@ -294,11 +352,36 @@ def forensics(body: ForensicsBody):
                 ],
             }
 
+        if not tracks:
+            import_mode = "spotify_api"
+            try:
+                info = sp.playlist_info(playlist_id)
+                imported = sp.playlist_tracks(playlist_id, limit=500)
+            except Exception:
+                try:
+                    info, imported = sp.playlist_embed(playlist_id)
+                    import_mode = "public_embed_preview"
+                except Exception:
+                    raise HTTPException(400, detail="playlist_import_failed")
+            if not imported:
+                raise HTTPException(404, detail="playlist_empty")
+            playlist_name = info.get("name")
+            tracks = [
+                f"{track['artist']} - {track['name']}"
+                for track in imported
+                if track.get("artist") and track.get("name")
+            ]
+    elif not tracks:
+        raise HTTPException(400, detail="invalid_playlist_url")
+
     if tracks:
+        editorial_path = local_parquet("processed/editorial_tracks_slim.parquet")
+        if editorial_path is None:
+            raise HTTPException(503, detail="not_ready")
         # Substring-match every submitted "Artist - Title" against the editorial
-        # track list in a single DuckDB pass, reading the slim table DIRECTLY from
-        # R2 (not downloaded locally). Forensics is a rare POST, so one httpfs scan
-        # per call is fine and keeps the 50 MB file off the box.
+        # track list in one local DuckDB pass. The 50 MB parquet is downloaded
+        # once and remains disk-backed, avoiding both repeated R2 scans and a
+        # large resident pandas DataFrame.
         q_rows = []
         for i, t in enumerate(tracks):
             parts = t.split(" - ", 1)
@@ -313,24 +396,25 @@ def forensics(body: ForensicsBody):
             hit = cur.execute(f"""
                 SELECT count(DISTINCT q.id) AS hits
                 FROM forensic_q q
-                JOIN read_parquet('{R2_PATH}/processed/editorial_tracks_slim.parquet') e
+                JOIN read_parquet('{editorial_path.as_posix()}') e
                   ON strpos(lower(e.track_name), q.tq) > 0
                  AND (q.aq = '' OR strpos(lower(e.artist_name), q.aq) > 0)
             """).fetchone()
         editorial_hits = int(hit[0]) if hit and hit[0] is not None else 0
 
         editorial_pct = round(editorial_hits / len(tracks) * 100) if tracks else 0
-        organic_pct   = 100 - editorial_pct
+        outside_reference_pct = 100 - editorial_pct
         verdict = (
-            "heavy_editorial"   if editorial_pct >= 70 else
-            "editorial_leaning" if editorial_pct >= 40 else
-            "mixed"             if editorial_pct >= 20 else
-            "organic"
+            "high_reference_overlap"   if editorial_pct >= 70 else
+            "moderate_reference_overlap" if editorial_pct >= 40 else
+            "some_reference_overlap"     if editorial_pct >= 20 else
+            "low_reference_overlap"
         )
         return {
             "playlist_url":   url,
-            "playlist_name":  None,
-            "organic_pct":    organic_pct,
+            "playlist_name":  playlist_name,
+            "organic_pct":    outside_reference_pct,
+            "outside_reference_pct": outside_reference_pct,
             "editorial_pct":  editorial_pct,
             "verdict":        verdict,
             "verdict_detail": (
@@ -341,19 +425,18 @@ def forensics(body: ForensicsBody):
                 {"label": "Tracks analysed",  "value": len(tracks)},
                 {"label": "Editorial hits",   "value": editorial_hits},
                 {"label": "Editorial density","value": f"{editorial_pct}%"},
+                *([{"label": "Import coverage", "value": f"Public preview ({len(tracks)} tracks)"}]
+                  if playlist_id and import_mode == "public_embed_preview" else []),
             ],
+            "evidence": {
+                "metric": "Share of imported tracks also observed in the Spotify editorial reference set",
+                "population": f"{len(tracks)} imported playlist tracks",
+                "source": "Public Spotify playlist import and archived editorial track set",
+                "limitations": [
+                    "Tracks outside the reference set are not proven to be organically selected",
+                    "Public embed imports may expose only a preview",
+                ],
+            },
         }
 
-    return {
-        "playlist_url":   url,
-        "playlist_name":  None,
-        "organic_pct":    None,
-        "editorial_pct":  None,
-        "verdict":        "unknown",
-        "verdict_detail": (
-            "Playlist not found in our editorial database. "
-            "Pass a 'tracks' list (['Artist - Title', ...]) alongside the URL "
-            "for editorial density analysis."
-        ),
-        "signals": [],
-    }
+    raise HTTPException(404, detail="playlist_empty")

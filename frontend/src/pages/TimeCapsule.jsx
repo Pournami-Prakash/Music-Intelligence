@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import LottiePlayer from '../components/LottiePlayer'
 import { CountUp } from '../components/Observatory'
 import { PvPage, PvTop, PvHero, PvPanel } from '../components/Premium'
+import { ErrorSignal } from '../components/SignalState'
+import { readSharedParam, replaceSharedParams } from '../lib/api'
 
 const ACCENT = '#94A3B8'
 const ERAS = ['1960s', '1970s', '1980s', '1990s', '2000s', '2010s', '2020s']
@@ -10,19 +12,36 @@ export default function TimeCapsule() {
   const [era, setEra] = useState('2010s')
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(false)
 
   const load = (e) => {
     setLoading(true)
     setData(null)
+    setError(false)
     fetch(`/data/time-capsule-${e}.json`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => setData(d))
-      .catch(() => {})
+      .then(r => {
+        if (!r.ok) throw new Error('snapshot_unavailable')
+        return r.json()
+      })
+      .then(d => {
+        if (!d?.top_tracks) throw new Error('snapshot_empty')
+        setData(d)
+      })
+      .catch(() => setError(true))
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { load('2010s') }, [])
-  const pick = (e) => { setEra(e); load(e) }
+  useEffect(() => {
+    const sharedEra = readSharedParam('era')
+    const initialEra = ERAS.includes(sharedEra) ? sharedEra : '2010s'
+    setEra(initialEra)
+    load(initialEra)
+  }, [])
+  const pick = (e) => {
+    setEra(e)
+    replaceSharedParams({ era: e })
+    load(e)
+  }
 
   const maxYear = data?.year_distribution?.length ? Math.max(...data.year_distribution.map(y => y.count)) : 1
 
@@ -30,7 +49,7 @@ export default function TimeCapsule() {
     <PvPage>
       <PvTop sub="Drop Archive" pill="Cultural capsule" />
       <PvHero eyebrow="Archive capsule" title={data ? `The ${data.era}` : 'Time Capsule'}>
-        Open an era and see the songs, artists, and chart moments that defined it in playlist culture.
+        Open an era and rank tracks released in that period by their reach across playlist culture.
       </PvHero>
 
       <div className="max-w-6xl">
@@ -57,6 +76,12 @@ export default function TimeCapsule() {
           </div>
         )}
 
+        {error && !loading && (
+          <ErrorSignal detail={`The ${era} snapshot could not be loaded.`} onRetry={() => load(era)}>
+            This capsule is temporarily unavailable.
+          </ErrorSignal>
+        )}
+
         {data && !loading && (
           <div className="space-y-4">
             <div className="grid grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)] gap-4 items-start">
@@ -64,7 +89,7 @@ export default function TimeCapsule() {
                 <p className="text-6xl font-extrabold tracking-[-0.04em] text-[var(--text-hi)]">{data.era}</p>
                 <div className="grid grid-cols-2 gap-3 mt-4">
                   <div className="pv-cell"><small>Tracks</small><strong><CountUp value={data.track_count} /></strong></div>
-                  <div className="pv-cell"><small>Source</small><strong className="capitalize text-base">{data.data_source}</strong></div>
+                  <div className="pv-cell"><small>Era field</small><strong className="capitalize text-base">{String(data.data_source).replaceAll('_', ' ')}</strong></div>
                 </div>
                 {data.date_range && <p className="text-[var(--text-low)] text-xs mt-3">{data.date_range.min} → {data.date_range.max}</p>}
               </PvPanel>
@@ -88,7 +113,7 @@ export default function TimeCapsule() {
                     <span className="font-mono text-xs text-[var(--text-low)]">{String(i + 1).padStart(2, '0')}</span>
                     <div className="min-w-0">
                       <p className="text-[var(--text-hi)] text-sm truncate">{t.title}</p>
-                      <p className="text-[var(--text-low)] text-xs truncate">{t.artist} · {t.appearances}×</p>
+                      <p className="text-[var(--text-low)] text-xs truncate">{t.artist}{t.release_year ? ` · ${t.release_year}` : ''} · {t.appearances}×</p>
                     </div>
                   </div>
                 ))}

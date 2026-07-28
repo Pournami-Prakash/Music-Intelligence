@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@600;700;800&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -19,7 +19,7 @@
       radial-gradient(ellipse at 92% 18%, rgba(196, 132, 252, 0.045), transparent 38rem),
       linear-gradient(145deg, #121512 0%, var(--atlas-surface) 32%, #070807 100%);
     color: var(--atlas-text);
-    font-family: Inter, sans-serif;
+    font-family: 'Instrument Sans', sans-serif;
     -webkit-font-smoothing: antialiased;
   }
 
@@ -2648,4 +2648,1508 @@
     .pv-fast-entry,
     .pv-fast-entry::before { transition: none !important; }
   }
+
+  /* ── Corpus signal console ──────────────────────────────────────────────
+     A source-owned, Anime.js-driven hero primitive. It replaces the stock
+     illustration with a legible preview of the relationship graph itself. */
+  .pv-home-stage {
+    grid-template-columns: minmax(0, .93fr) minmax(430px, 1.07fr);
+    gap: clamp(30px, 4vw, 74px);
+    min-height: clamp(520px, 70vh, 720px);
+  }
+
+  .pv-home-copy { text-align: left; }
+  .pv-home-copy h1 {
+    max-width: 720px;
+    font-size: clamp(68px, 7.9vw, 126px);
+  }
+  .pv-home-copy h1,
+  .pv-home-deck { text-align: left; }
+  .pv-home-deck {
+    max-width: 560px;
+    margin-left: 0;
+    font-size: clamp(16px, 1.45vw, 19px);
+  }
+  .pv-home-copy .pv-search {
+    max-width: 650px;
+    margin-left: 0;
+  }
+
+  .pv-search-starters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 7px;
+    margin-top: 14px;
+  }
+  .pv-search-starters > span {
+    margin-right: 4px;
+    color: var(--text-low);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+  .pv-search-starters button {
+    min-height: 30px;
+    padding: 0 10px;
+    border: 1px solid rgba(255,255,255,.1);
+    background: rgba(255,255,255,.025);
+    color: rgba(232,234,228,.64);
+    cursor: pointer;
+    font-size: 11px;
+    transition:
+      color 160ms cubic-bezier(.22,1,.36,1),
+      border-color 160ms cubic-bezier(.22,1,.36,1),
+      transform 160ms cubic-bezier(.22,1,.36,1);
+  }
+  .pv-search-starters button:hover {
+    color: var(--text-hi);
+    border-color: color-mix(in srgb, var(--accent) 55%, rgba(255,255,255,.1));
+    transform: translateY(-1px);
+  }
+
+  .pv-home-lottie {
+    min-height: 510px;
+    overflow: visible;
+    container-type: inline-size;
+  }
+  .pv-home-lottie::after { display: none; }
+  .pv-home-lottie .pv-signal-sweep {
+    inset: 4% auto 4% -5%;
+    z-index: 5;
+    width: 35%;
+    mix-blend-mode: screen;
+  }
+
+  .corpus-signal {
+    --signal-x: 52%;
+    --signal-y: 46%;
+    position: relative;
+    width: min(100%, 610px);
+    aspect-ratio: 1.05;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    border: 1px solid color-mix(in srgb, var(--accent) 34%, rgba(255,255,255,.11));
+    background:
+      radial-gradient(circle at var(--signal-x) var(--signal-y), color-mix(in srgb, var(--accent) 12%, transparent), transparent 28%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,.025) 0 1px, transparent 1px 5px),
+      linear-gradient(145deg, rgba(20,24,21,.96), rgba(7,9,8,.98));
+    box-shadow:
+      20px 22px 0 rgba(0,0,0,.16),
+      0 30px 90px rgba(0,0,0,.26);
+    clip-path: polygon(0 0, calc(100% - 32px) 0, 100% 32px, 100% 100%, 0 100%);
+    isolation: isolate;
+    transition: background-position 220ms ease;
+  }
+  .corpus-signal::before {
+    content: '';
+    position: absolute;
+    inset: 9px;
+    z-index: -1;
+    border: 1px solid color-mix(in srgb, var(--accent) 9%, transparent);
+    pointer-events: none;
+  }
+  .corpus-signal::after {
+    content: 'RELATIONSHIP FIELD / 01';
+    position: absolute;
+    right: 11px;
+    top: 58px;
+    color: color-mix(in srgb, var(--accent) 42%, transparent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    writing-mode: vertical-rl;
+  }
+
+  .corpus-console-head,
+  .corpus-console-foot {
+    position: relative;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 11px;
+    padding: 14px 13px 11px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    color: var(--text-low);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+  .corpus-console-head span {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-mid);
+  }
+  .corpus-console-head i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 13%, transparent);
+  }
+  .corpus-console-head b { color: color-mix(in srgb, var(--accent) 74%, #e7eee8 26%); }
+  .corpus-console-foot {
+    padding-block: 11px 14px;
+    border-top: 1px solid rgba(255,255,255,.08);
+    border-bottom: 0;
+    letter-spacing: .06em;
+  }
+
+  .corpus-plot {
+    position: relative;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .corpus-plot svg {
+    width: 100%;
+    height: 100%;
+    min-height: 380px;
+    overflow: visible;
+  }
+  .corpus-grid {
+    fill: none;
+    stroke: rgba(189,214,195,.11);
+    stroke-width: .23;
+    stroke-dasharray: 1 2.6;
+  }
+  .corpus-grid path { stroke-dasharray: .6 3.1; }
+  .corpus-path {
+    fill: none;
+    stroke: color-mix(in srgb, var(--accent) 68%, #b8d2be 32%);
+    stroke-width: .34;
+    stroke-dasharray: 2 1.6;
+    vector-effect: non-scaling-stroke;
+  }
+  .corpus-reticle {
+    fill: none;
+    stroke: color-mix(in srgb, var(--accent) 52%, transparent);
+    stroke-width: .45;
+    stroke-dasharray: 7 18;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  .corpus-core > circle:last-child {
+    fill: #dfffe5;
+    stroke: var(--accent);
+    stroke-width: 1;
+  }
+  .corpus-ping {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: .5;
+    transform-box: fill-box;
+    transform-origin: center;
+    pointer-events: none;
+  }
+  .corpus-node {
+    cursor: pointer;
+    outline: none;
+    transform-box: fill-box;
+  }
+  .corpus-node-hit {
+    fill: rgba(4,8,6,.86);
+    stroke: rgba(255,255,255,.13);
+    stroke-width: .4;
+    transition: fill 200ms ease, stroke 200ms ease;
+  }
+  .corpus-node-dot {
+    fill: #a8b5ab;
+    transition: fill 200ms ease, transform 200ms cubic-bezier(.22,1,.36,1);
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  .corpus-node text {
+    fill: rgba(221,230,223,.43);
+    font: 700 2.5px/1 'JetBrains Mono', monospace;
+    letter-spacing: .08em;
+    pointer-events: none;
+  }
+  .corpus-node:hover .corpus-node-hit,
+  .corpus-node:focus-visible .corpus-node-hit,
+  .corpus-node.is-active .corpus-node-hit {
+    fill: color-mix(in srgb, var(--accent) 13%, rgba(4,8,6,.9));
+    stroke: color-mix(in srgb, var(--accent) 72%, #e5efe7 28%);
+  }
+  .corpus-node:hover .corpus-node-dot,
+  .corpus-node:focus-visible .corpus-node-dot,
+  .corpus-node.is-active .corpus-node-dot {
+    fill: var(--accent);
+    transform: scale(1.35);
+  }
+  .corpus-node.is-active text { fill: color-mix(in srgb, var(--accent) 78%, #eef4ef 22%); }
+
+  .corpus-readout {
+    position: absolute;
+    left: 20px;
+    bottom: 18px;
+    width: min(44%, 190px);
+    padding: 13px 14px 12px;
+    border-left: 2px solid var(--accent);
+    background: rgba(5,8,6,.84);
+    box-shadow: 0 12px 32px rgba(0,0,0,.22);
+    pointer-events: none;
+  }
+  .corpus-readout span,
+  .corpus-readout p,
+  .corpus-readout small {
+    display: block;
+    color: var(--text-low);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 7px;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+  }
+  .corpus-readout strong {
+    display: block;
+    margin-top: 3px;
+    color: var(--text-hi);
+    font-family: 'Archivo Narrow', sans-serif;
+    font-size: 24px;
+    line-height: .95;
+    text-transform: uppercase;
+  }
+  .corpus-readout p { margin-top: 6px; line-height: 1.45; }
+  .corpus-readout > b {
+    display: block;
+    margin-top: 8px;
+    color: var(--accent);
+    font-size: 12px;
+  }
+  .corpus-readout small { display: inline; margin-left: 3px; }
+
+  @container (max-width: 470px) {
+    .corpus-console-foot span:nth-child(2) { display: none; }
+    .corpus-plot svg { min-height: 320px; }
+    .corpus-readout { left: 14px; bottom: 12px; }
+  }
+
+  @media (max-width: 1080px) {
+    .pv-home-stage {
+      grid-template-columns: minmax(0, .88fr) minmax(390px, 1.12fr);
+      gap: 28px;
+    }
+    .pv-home-copy h1 { font-size: clamp(64px, 8vw, 92px); }
+  }
+
+  @media (max-width: 980px) {
+    .pv-home-stage { grid-template-columns: 1fr; }
+    .pv-home-copy,
+    .pv-home-copy h1,
+    .pv-home-deck { text-align: center; }
+    .pv-home-copy h1,
+    .pv-home-deck,
+    .pv-home-copy .pv-search { margin-inline: auto; }
+    .pv-search-starters { justify-content: center; }
+    .pv-home-lottie { min-height: 500px; }
+    .corpus-signal { width: min(88vw, 600px); }
+  }
+
+  @media (max-width: 560px) {
+    .pv-home-copy h1 { font-size: clamp(54px, 16vw, 74px); }
+    .pv-search-starters > span { width: 100%; }
+    .pv-home-lottie { min-height: 390px; }
+    .corpus-signal {
+      width: calc(100vw - 38px);
+      aspect-ratio: .88;
+      box-shadow: 10px 12px 0 rgba(0,0,0,.16);
+    }
+    .corpus-console-foot span:nth-child(2) { display: none; }
+    .corpus-plot svg { min-height: 320px; }
+    .corpus-readout { width: 46%; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pv-search-starters button,
+    .corpus-node-hit,
+    .corpus-node-dot { transition: none !important; }
+    .corpus-path { opacity: .62; stroke-dashoffset: 0; }
+    .corpus-node { opacity: 1; }
+    .corpus-ping { display: none; }
+  }
+
+  /* ── Cinematic route engine ─────────────────────────────────────────────
+     A low-resolution WebGL field supplies depth while DOM/SVG remains the
+     legible, accessible foreground. Each family uses its own visual grammar. */
+  .cinematic-field {
+    position: sticky;
+    top: 0;
+    z-index: 0;
+    display: block;
+    width: 100%;
+    height: 100svh;
+    margin-bottom: -100svh;
+    opacity: .9;
+    pointer-events: none;
+    contain: strict;
+  }
+  .cinematic-field[data-webgl='unavailable'] {
+    background:
+      radial-gradient(circle at 70% 25%, color-mix(in srgb, var(--route-accent) 13%, transparent), transparent 35rem),
+      repeating-linear-gradient(112deg, transparent 0 26px, color-mix(in srgb, var(--route-accent) 4%, transparent) 27px 28px);
+  }
+
+  .scene-cut {
+    position: fixed;
+    inset: 0 0 0 14rem;
+    z-index: 46;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .scene-cut.is-active {
+    animation: scene-cut-visibility 880ms linear both;
+  }
+  @keyframes scene-cut-visibility {
+    0% { opacity: 0; }
+    5%, 58% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  .scene-cut-bars {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: 1.15fr .7fr 1.15fr;
+  }
+  .scene-cut-bar {
+    display: block;
+    background: color-mix(in srgb, var(--route-accent) 7%, #060806);
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+  .scene-cut-bar:nth-child(2) {
+    background: color-mix(in srgb, var(--route-accent) 12%, #060806);
+    transform-origin: center;
+  }
+  .scene-cut-bar:nth-child(3) { transform-origin: right; }
+  .scene-cut-copy {
+    position: absolute;
+    left: clamp(22px, 4vw, 64px);
+    bottom: clamp(26px, 6vw, 76px);
+    display: grid;
+    gap: 6px;
+    color: var(--text-hi);
+    text-transform: uppercase;
+  }
+  .scene-cut-copy span {
+    color: var(--route-accent);
+    font: 800 10px/1 'JetBrains Mono', monospace;
+    letter-spacing: .18em;
+  }
+  .scene-cut-copy strong {
+    font: 800 clamp(42px, 7vw, 100px)/.82 'Archivo Narrow', sans-serif;
+    letter-spacing: -.055em;
+  }
+
+  .atlas-environment-svg {
+    position: absolute;
+    right: clamp(-30px, 2vw, 34px);
+    top: clamp(360px, 48vh, 620px);
+    width: clamp(280px, 38vw, 590px);
+    overflow: visible;
+    fill: none;
+    stroke: color-mix(in srgb, var(--route-accent) 52%, transparent);
+    stroke-width: .75;
+    opacity: .28;
+    filter: drop-shadow(0 0 18px color-mix(in srgb, var(--route-accent) 8%, transparent));
+  }
+  .atlas-environment-svg .environment-node {
+    fill: #080b09;
+    stroke-width: 1.5;
+  }
+
+  @keyframes environment-drift-x {
+    0%, 100% { transform: translate3d(0, 0, 0); }
+    50% { transform: translate3d(-18px, 8px, 0); }
+  }
+  @keyframes environment-drift-y {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+    50% { transform: translate3d(0, -14px, 0) scale(1.018); }
+  }
+  @keyframes environment-pulse {
+    0%, 100% { opacity: .22; }
+    50% { opacity: .48; }
+  }
+  @keyframes graph-node-pulse {
+    0%, 100% { stroke-width: 1; transform: scale(.8); }
+    50% { stroke-width: 2; transform: scale(1.25); }
+  }
+
+  [data-atlas-family='cartography'] .atlas-environment-svg {
+    animation: environment-drift-x 14s cubic-bezier(.25,1,.5,1) infinite;
+  }
+  [data-atlas-family='observatory'] .atlas-environment-svg {
+    animation: atlas-orbit-forward 70s linear infinite;
+    transform-origin: center;
+  }
+  [data-atlas-family='song'] .atlas-environment-svg {
+    animation: environment-drift-y 9s cubic-bezier(.25,1,.5,1) infinite;
+  }
+  [data-atlas-family='lexicon'] .atlas-environment-svg {
+    animation: environment-pulse 7s cubic-bezier(.25,1,.5,1) infinite;
+  }
+  [data-atlas-family='graph'] .atlas-environment-svg .environment-node {
+    animation: graph-node-pulse 2.6s cubic-bezier(.22,1,.36,1) infinite;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  [data-atlas-family='graph'] .atlas-environment-svg .environment-node:nth-of-type(2) { animation-delay: -800ms; }
+  [data-atlas-family='graph'] .atlas-environment-svg .environment-node:nth-of-type(3) { animation-delay: -1600ms; }
+  [data-atlas-family='archive'] .atlas-environment-svg {
+    animation: environment-drift-y 12s cubic-bezier(.25,1,.5,1) infinite reverse;
+  }
+
+  /* Typography behaves like a title sequence, but remains ordinary document
+     text for selection, screen readers, and reduced-motion users. */
+  .atlas-main .pv-hero h1,
+  .atlas-main .pv-home-copy h1 {
+    position: relative;
+    text-shadow: 0 18px 54px rgba(0,0,0,.28);
+  }
+  [data-atlas-family='cartography'] .pv-hero h1 {
+    clip-path: polygon(0 0, 96% 0, 100% 100%, 0 100%);
+  }
+  [data-atlas-family='observatory'] .pv-hero h1 {
+    letter-spacing: -.065em;
+    text-shadow:
+      1px 0 color-mix(in srgb, var(--route-accent) 55%, transparent),
+      -16px 20px 70px rgba(0,0,0,.38);
+  }
+  [data-atlas-family='song'] .pv-hero h1 { font-style: italic; }
+  [data-atlas-family='lexicon'] .pv-hero h1 {
+    -webkit-text-stroke: 1px color-mix(in srgb, var(--route-accent) 24%, var(--text-hi));
+    text-shadow: 12px 12px 0 color-mix(in srgb, var(--route-accent) 9%, transparent);
+  }
+  [data-atlas-family='graph'] .pv-hero h1 {
+    transform: skewX(-3deg);
+    transform-origin: left bottom;
+  }
+  [data-atlas-family='archive'] .pv-hero h1 {
+    color: color-mix(in srgb, var(--text-hi) 84%, var(--route-accent));
+    text-shadow: 0 1px rgba(255,255,255,.14), 0 22px 65px rgba(0,0,0,.44);
+  }
+
+  /* Tactile control layer — source-owned primitives inspired by the reference
+     libraries, tuned to this product instead of importing competing systems. */
+  .atlas-main :is(
+    .pv-search button,
+    .pv-link,
+    .pv-chips button,
+    .atlas-query-dock > button,
+    .atlas-room-featured,
+    .atlas-room-row,
+    .pv-fast-entry
+  ) {
+    -webkit-tap-highlight-color: transparent;
+    transform-origin: center;
+    transition:
+      transform 180ms cubic-bezier(.22,1,.36,1),
+      color 180ms ease,
+      background-color 180ms ease,
+      border-color 180ms ease,
+      filter 180ms ease;
+  }
+  .atlas-main :is(
+    .pv-search button,
+    .pv-link,
+    .pv-chips button,
+    .atlas-query-dock > button,
+    .atlas-room-featured,
+    .atlas-room-row,
+    .pv-fast-entry
+  ):active {
+    transform: translateY(1px) scale(.975);
+    filter: saturate(1.15);
+  }
+  .atlas-main :is(.pv-search, .atlas-query-dock):focus-within {
+    border-color: color-mix(in srgb, var(--route-accent) 72%, rgba(255,255,255,.2));
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--route-accent) 18%, transparent),
+      14px 16px 0 color-mix(in srgb, var(--route-accent) 5%, transparent);
+  }
+
+  /* Specialized data motion: same data components, different physical rules. */
+  [data-atlas-family='cartography'] :is(.pv-panel, .pv-cell) {
+    background-image:
+      repeating-radial-gradient(circle at 100% 0, transparent 0 18px, color-mix(in srgb, var(--route-accent) 5%, transparent) 19px 20px);
+  }
+  [data-atlas-family='observatory'] .pv-cell:hover {
+    transform: translateY(-3px) scale(1.012);
+    border-color: color-mix(in srgb, var(--route-accent) 44%, var(--hairline));
+  }
+  [data-atlas-family='song'] .pv-panel {
+    background-position: 0 0;
+    transition: background-position 500ms cubic-bezier(.22,1,.36,1);
+  }
+  [data-atlas-family='song'] .pv-panel:hover { background-position: 0 -8px; }
+  [data-atlas-family='lexicon'] .pv-cell:hover strong {
+    color: var(--route-accent);
+    letter-spacing: .015em;
+  }
+  [data-atlas-family='graph'] :is(.pv-cell, .pv-panel) {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--route-accent) 3%, transparent);
+  }
+  [data-atlas-family='graph'] .pv-cell:hover {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--route-accent) 22%, transparent),
+      0 16px 45px -32px var(--route-accent);
+  }
+  [data-atlas-family='archive'] .pv-panel:hover {
+    transform: translate3d(-2px, -3px, 0);
+    box-shadow: 9px 10px 0 color-mix(in srgb, var(--route-accent) 5%, transparent);
+  }
+  .atlas-main .pv-cell,
+  .atlas-main .pv-panel {
+    transition:
+      transform 260ms cubic-bezier(.22,1,.36,1),
+      border-color 220ms ease,
+      box-shadow 260ms ease,
+      background-position 500ms cubic-bezier(.22,1,.36,1);
+  }
+
+  @supports (animation-timeline: scroll()) {
+    .atlas-environment-svg {
+      animation-name: environment-scroll-camera;
+      animation-duration: 1ms;
+      animation-timeline: scroll(root);
+      animation-range: 0 120vh;
+    }
+    @keyframes environment-scroll-camera {
+      from { translate: 0 0; scale: 1; opacity: .32; }
+      to { translate: 0 -150px; scale: 1.16; opacity: .06; }
+    }
+  }
+
+  @media (max-width: 1024px) {
+    .scene-cut { left: 0; }
+    .atlas-environment-svg { right: -90px; width: min(72vw, 520px); opacity: .2; }
+  }
+
+  @media (max-width: 640px) {
+    .cinematic-field { opacity: .72; }
+    .atlas-environment-svg {
+      top: 360px;
+      right: -120px;
+      width: 430px;
+      opacity: .16;
+    }
+    .scene-cut-bars { grid-template-columns: 1fr 1fr; }
+    .scene-cut-bar:nth-child(2) { display: none; }
+    [data-atlas-family='lexicon'] .pv-hero h1 {
+      -webkit-text-stroke-width: .5px;
+      text-shadow: 6px 6px 0 color-mix(in srgb, var(--route-accent) 8%, transparent);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cinematic-field { opacity: .6; }
+    .scene-cut { display: none; }
+    .atlas-environment-svg,
+    .atlas-environment-svg *,
+    .atlas-main :is(.pv-cell, .pv-panel) {
+      animation: none !important;
+      transition: none !important;
+      transform: none !important;
+    }
+  }
+
+  /* ── Feature-by-feature direction ───────────────────────────────────────
+     The shared shell stops here. Every registered instrument below receives
+     its own silhouette, result physics, and state vocabulary. */
+  .feature-signature {
+    position: absolute;
+    right: clamp(28px, 5vw, 86px);
+    top: clamp(260px, 31vw, 410px);
+    width: clamp(240px, 28vw, 410px);
+    padding: 12px 14px 10px;
+    border-top: 1px solid color-mix(in srgb, var(--route-accent) 55%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--route-accent) 17%, transparent);
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--route-accent) 5%, rgba(5,7,6,.4)));
+    color: var(--route-accent);
+    opacity: .42;
+    transform: rotate(-2deg);
+  }
+  .feature-signature-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    color: color-mix(in srgb, var(--route-accent) 74%, #d9e0da 26%);
+    font: 800 8px/1 'JetBrains Mono', monospace;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+  }
+  .feature-signature-head b { color: rgba(225,232,226,.36); }
+  .feature-signature svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+    fill: color-mix(in srgb, var(--route-accent) 8%, transparent);
+    stroke: currentColor;
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+  .feature-signature svg > * {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  .feature-signature p {
+    color: rgba(225,232,226,.34);
+    font: 700 7px/1.4 'JetBrains Mono', monospace;
+    letter-spacing: .08em;
+    text-align: right;
+    text-transform: uppercase;
+  }
+  .feature-signature[data-signature='heat'] .signature-cell,
+  .feature-signature[data-signature='matrix'] .signature-cell {
+    fill: var(--route-accent);
+    stroke: none;
+  }
+  .feature-signature[data-signature='slots'] .signature-cell {
+    fill: color-mix(in srgb, var(--route-accent) 10%, transparent);
+  }
+
+  /* 01 — Mood Map: open, topographic, territorial. */
+  [data-atlas-scene='mood'] .pv-panel {
+    clip-path: polygon(0 0, 96% 0, 100% 7%, 100% 100%, 4% 100%, 0 93%);
+  }
+  [data-atlas-scene='mood'] .pv-panel::before {
+    content: '';
+    position: absolute;
+    inset: 14px;
+    border: 1px dashed color-mix(in srgb, var(--route-accent) 12%, transparent);
+    border-radius: 52% 48% 61% 39% / 41% 58% 42% 59%;
+    pointer-events: none;
+  }
+
+  /* 02 — Genre Weather: floating pressure glass and atmospheric cells. */
+  [data-atlas-scene='weather'] .pv-weather {
+    border-radius: 48% 52% 2px 2px / 9% 9% 2px 2px;
+    box-shadow: inset 0 40px 100px color-mix(in srgb, var(--route-accent) 6%, transparent);
+  }
+  [data-atlas-scene='weather'] .pv-front {
+    filter: drop-shadow(0 20px 24px rgba(0,0,0,.28));
+    transition: filter 220ms ease, scale 220ms cubic-bezier(.22,1,.36,1);
+  }
+  [data-atlas-scene='weather'] .pv-front:hover { filter: drop-shadow(0 24px 36px currentColor); scale: 1.05; }
+
+  /* 03 — Ancestry: a branching research sheet. */
+  [data-atlas-scene='ancestry'] .pv-panel {
+    background-image:
+      linear-gradient(115deg, transparent 0 49.8%, color-mix(in srgb, var(--route-accent) 11%, transparent) 50% 50.2%, transparent 50.4%);
+  }
+  [data-atlas-scene='ancestry'] .pv-cell {
+    clip-path: polygon(12px 0, 100% 0, 100% 100%, 12px 100%, 0 50%);
+  }
+
+  /* 04 — Forensics: hard-edged scanner and evidence strips. */
+  [data-atlas-scene='forensics'] .pv-panel {
+    background-image:
+      repeating-linear-gradient(0deg, transparent 0 6px, color-mix(in srgb, var(--route-accent) 5%, transparent) 6px 7px);
+  }
+  [data-atlas-scene='forensics'] .pv-panel:has(textarea)::after {
+    content: 'INPUT EVIDENCE';
+    position: absolute;
+    right: 16px;
+    top: 14px;
+    color: var(--route-accent);
+    font: 700 8px 'JetBrains Mono', monospace;
+    letter-spacing: .16em;
+  }
+  [data-atlas-scene='forensics'] textarea:focus { background: color-mix(in srgb, var(--route-accent) 4%, #090b0a); }
+
+  /* 05 — Ubiquity: broadcast-scale reach. */
+  [data-atlas-scene='ubiquity'] .pv-panel:first-of-type {
+    border-radius: 50% 2px 2px 50% / 18% 2px 2px 18%;
+    padding-left: clamp(28px, 5vw, 72px);
+  }
+  [data-atlas-scene='ubiquity'] .pv-stat b,
+  [data-atlas-scene='ubiquity'] .pv-cell strong {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* 06 — Habitat: clustered, organic contexts. */
+  [data-atlas-scene='habitat'] .pv-panel:has(svg) {
+    border-radius: 44% 56% 48% 52% / 10% 12% 8% 10%;
+    overflow: hidden;
+  }
+  [data-atlas-scene='habitat'] .pv-cell:nth-child(odd) { transform: translateY(5px); }
+  [data-atlas-scene='habitat'] .pv-cell:nth-child(even) { transform: translateY(-3px); }
+
+  /* 07 — Basicness: calibrated industrial gauge. */
+  [data-atlas-scene='gauge'] .pv-panel {
+    clip-path: polygon(0 18px, 18px 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%);
+  }
+  [data-atlas-scene='gauge'] .pv-search button { background: linear-gradient(90deg, #d9aa2e, var(--route-accent)); }
+  [data-atlas-scene='gauge'] .pv-cell { border-bottom: 2px solid color-mix(in srgb, var(--route-accent) 28%, transparent); }
+
+  /* 08 — Main Character: stage light and dramatic centrality. */
+  [data-atlas-scene='spotlight'] .pv-hero {
+    filter: drop-shadow(0 25px 80px color-mix(in srgb, var(--route-accent) 12%, transparent));
+  }
+  [data-atlas-scene='spotlight'] .pv-panel {
+    background-image: radial-gradient(ellipse at 50% 0, color-mix(in srgb, var(--route-accent) 15%, transparent), transparent 54%);
+  }
+  [data-atlas-scene='spotlight'] .pv-panel > :is(p, div) { position: relative; z-index: 1; }
+
+  /* 09 — Overlap: opposing subjects and a compressed collision seam. */
+  [data-atlas-scene='overlap'] .pv-search-route {
+    background: linear-gradient(90deg, rgba(90,200,250,.06), transparent 48%, rgba(251,146,60,.06));
+  }
+  [data-atlas-scene='overlap'] .pv-panel:nth-child(2) {
+    clip-path: polygon(12% 0, 88% 0, 100% 50%, 88% 100%, 12% 100%, 0 50%);
+  }
+
+  /* 10 — Song Passport: customs paper, stamps, and ruled travel history. */
+  [data-atlas-scene='passport'] .pv-panel {
+    transform-origin: 18% 0;
+    box-shadow: -7px 8px 0 color-mix(in srgb, var(--route-accent) 5%, transparent);
+  }
+  [data-atlas-scene='passport'] .pv-cell {
+    background-image: repeating-linear-gradient(0deg, transparent 0 25px, rgba(255,255,255,.025) 25px 26px);
+  }
+
+  /* 11 — Contradiction: a visible emotional fault line. */
+  [data-atlas-scene='contradiction'] .pv-panel {
+    background:
+      linear-gradient(104deg, rgba(255,92,138,.07) 0 48%, rgba(232,234,228,.16) 48.3% 48.7%, rgba(90,200,250,.06) 49%),
+      rgba(12,13,13,.92);
+  }
+  [data-atlas-scene='contradiction'] .pv-cell:nth-child(odd) { border-color: rgba(255,92,138,.24); }
+  [data-atlas-scene='contradiction'] .pv-cell:nth-child(even) { border-color: rgba(90,200,250,.24); }
+
+  /* 12 — Guilty Pleasure: survival heat-map tiles. */
+  [data-atlas-scene='guilty'] .pv-panel {
+    background-image:
+      linear-gradient(90deg, color-mix(in srgb, var(--route-accent) 5%, transparent) 1px, transparent 1px),
+      linear-gradient(color-mix(in srgb, var(--route-accent) 5%, transparent) 1px, transparent 1px);
+    background-size: 34px 34px;
+  }
+  [data-atlas-scene='guilty'] .pv-cell:hover { background: color-mix(in srgb, var(--route-accent) 13%, #101211); }
+
+  /* 13 — Soundtrack Gift: sleeve-like panels and an emotional sequence. */
+  [data-atlas-scene='gift'] .pv-panel:first-of-type {
+    clip-path: polygon(0 0, 90% 0, 100% 14%, 100% 100%, 0 100%);
+  }
+  [data-atlas-scene='gift'] .pv-panel:nth-of-type(2) { transform: rotate(.45deg); }
+  [data-atlas-scene='gift'] .pv-cell { border-radius: 999px 2px 2px 999px; }
+
+  /* 14 — Playlist Language: the words become the architecture. */
+  [data-atlas-scene='language'] .pv-panel {
+    border-inline: 0;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--route-accent) 8%, transparent), transparent);
+  }
+  [data-atlas-scene='language'] .pv-cell strong { font-family: 'Archivo Narrow', sans-serif; text-transform: uppercase; }
+
+  /* 15 — Trend Explorer: rising phrase momentum. */
+  [data-atlas-scene='trend'] .pv-panel {
+    clip-path: polygon(0 10%, 8% 10%, 8% 6%, 26% 6%, 26% 0, 100% 0, 100% 100%, 0 100%);
+  }
+  [data-atlas-scene='trend'] .pv-cell { transform-origin: left bottom; }
+  [data-atlas-scene='trend'] .pv-cell:hover { transform: skewX(-2deg) translateX(4px); }
+
+  /* 16 — Name Generator: tactile slot-machine output. */
+  [data-atlas-scene='generator'] .pv-panel {
+    background-image: repeating-linear-gradient(90deg, transparent 0 72px, color-mix(in srgb, var(--route-accent) 7%, transparent) 72px 73px);
+  }
+  [data-atlas-scene='generator'] .pv-cell {
+    box-shadow: inset 0 -22px 35px rgba(0,0,0,.26);
+    transition: translate 180ms cubic-bezier(.22,1,.36,1);
+  }
+  [data-atlas-scene='generator'] .pv-cell:hover { translate: 0 -4px; }
+
+  /* 17 — Roast: red-pen audit with deliberate strike marks. */
+  [data-atlas-scene='roast'] .pv-panel {
+    background-image: linear-gradient(168deg, transparent 0 48.5%, color-mix(in srgb, var(--route-accent) 18%, transparent) 49% 49.4%, transparent 50%);
+  }
+  [data-atlas-scene='roast'] .pv-search button { transform: rotate(-1deg); }
+
+  /* 18 — Six Degrees: nodes, beams, and diagonal momentum. */
+  [data-atlas-scene='degrees'] .pv-panel {
+    clip-path: polygon(0 0, calc(100% - 26px) 0, 100% 26px, 100% 100%, 26px 100%, 0 calc(100% - 26px));
+  }
+  [data-atlas-scene='degrees'] .pv-cell { border-radius: 0; }
+  [data-atlas-scene='degrees'] .pv-cell:hover { transform: translateX(7px); }
+
+  /* 19 — Compass: true radial instrument behavior. */
+  [data-atlas-scene='compass'] .pv-panel {
+    border-radius: 50%;
+    background-image: repeating-radial-gradient(circle, transparent 0 42px, color-mix(in srgb, var(--route-accent) 7%, transparent) 43px 44px);
+  }
+  [data-atlas-scene='compass'] .pv-panel:has(.atlas-lottie) { border-radius: 50%; }
+
+  /* 20 — Collision: impact seam and opposing color pressure. */
+  [data-atlas-scene='collision'] .pv-search-route {
+    transform: skewX(-1deg);
+    background: linear-gradient(90deg, rgba(98,168,255,.05), transparent 45% 55%, rgba(255,107,107,.06));
+  }
+  [data-atlas-scene='collision'] .pv-panel {
+    box-shadow: inset 1px 0 color-mix(in srgb, var(--route-accent) 22%, transparent);
+  }
+
+  /* 21 — Transition Finder: a horizontal mixing bridge. */
+  [data-atlas-scene='transition'] .pv-search-route {
+    clip-path: polygon(0 0, 48% 0, 50% 12px, 52% 0, 100% 0, 100% 100%, 52% 100%, 50% calc(100% - 12px), 48% 100%, 0 100%);
+  }
+  [data-atlas-scene='transition'] .pv-cell:nth-child(even) { transform: translateY(5px); }
+
+  /* 22 — Doppelganger: mirrored panels and bilateral type. */
+  [data-atlas-scene='mirror'] .pv-panel {
+    background:
+      linear-gradient(90deg, transparent 49.8%, color-mix(in srgb, var(--route-accent) 16%, transparent) 50%, transparent 50.2%),
+      rgba(13,15,15,.93);
+  }
+  [data-atlas-scene='mirror'] .pv-cell:nth-child(even) { text-align: right; }
+
+  /* 23 — Group Blend: three-source convergence. */
+  [data-atlas-scene='blend'] .pv-panel {
+    background-image:
+      radial-gradient(circle at 30% 20%, color-mix(in srgb, #5ac8fa 8%, transparent), transparent 35%),
+      radial-gradient(circle at 70% 20%, color-mix(in srgb, #fb923c 8%, transparent), transparent 35%),
+      radial-gradient(circle at 50% 82%, color-mix(in srgb, var(--route-accent) 9%, transparent), transparent 38%);
+  }
+  [data-atlas-scene='blend'] .pv-cell { border-radius: 999px; text-align: center; }
+
+  /* 24 — Editorial Graveyard: ledger rows and archival severity. */
+  [data-atlas-scene='graveyard'] .pv-panel {
+    box-shadow: 12px 12px 0 rgba(0,0,0,.18);
+    background-image: repeating-linear-gradient(0deg, transparent 0 34px, rgba(255,255,255,.035) 34px 35px);
+  }
+  [data-atlas-scene='graveyard'] .pv-cell { border-inline: 0; }
+
+  /* 25 — Forgotten Hits: deliberately fading visual gravity. */
+  [data-atlas-scene='forgotten'] .pv-cell { opacity: .74; filter: saturate(.72); }
+  [data-atlas-scene='forgotten'] .pv-cell:hover { opacity: 1; filter: saturate(1); }
+  [data-atlas-scene='forgotten'] .pv-panel {
+    background-image: linear-gradient(180deg, rgba(245,158,11,.055), transparent 64%);
+  }
+
+  /* 26 — Time Capsule: nested era frames and temporal depth. */
+  [data-atlas-scene='capsule'] .pv-panel {
+    box-shadow:
+      5px 5px 0 color-mix(in srgb, var(--route-accent) 4%, transparent),
+      10px 10px 0 color-mix(in srgb, var(--route-accent) 2%, transparent);
+  }
+  [data-atlas-scene='capsule'] .pv-chips button { border-radius: 999px; }
+  [data-atlas-scene='capsule'] .pv-chips button:hover { box-shadow: inset 0 0 0 1px var(--route-accent); }
+
+  /* Operational states are also art-directed. The existing Lottie remains as
+     a faint texture, while each instrument supplies its own diagnostic glyph. */
+  .atlas-main .pv-panel:has(.atlas-lottie) {
+    position: relative;
+    isolation: isolate;
+  }
+  .atlas-main .pv-panel:has(.atlas-lottie)::before {
+    content: var(--state-glyph, '◌') '\A' var(--state-label, 'CALIBRATING SIGNAL');
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: grid;
+    place-content: center;
+    color: color-mix(in srgb, var(--route-accent) 72%, #e8eee9 28%);
+    font: 800 clamp(12px, 1.2vw, 16px)/1.2 'JetBrains Mono', monospace;
+    letter-spacing: .16em;
+    text-align: center;
+    text-transform: uppercase;
+    white-space: pre;
+    pointer-events: none;
+    text-shadow: 0 0 34px color-mix(in srgb, var(--route-accent) 26%, transparent);
+  }
+  .atlas-main .pv-panel:has(.atlas-lottie)::first-line {
+    font-family: 'Archivo Narrow', sans-serif;
+    font-size: clamp(72px, 10vw, 138px);
+    line-height: .72;
+    letter-spacing: -.04em;
+  }
+  .atlas-main .pv-panel:has(.atlas-lottie) .atlas-lottie {
+    opacity: .11;
+    filter: grayscale(1) contrast(1.25);
+    mix-blend-mode: luminosity;
+  }
+  .atlas-main .pv-panel:has(.atlas-lottie) p {
+    position: absolute;
+    left: 24px;
+    right: 24px;
+    bottom: 24px;
+    z-index: 3;
+    margin: 0;
+    text-align: center;
+    color: color-mix(in srgb, var(--route-accent) 44%, var(--text-mid));
+  }
+
+  [data-atlas-scene='mood'] { --state-glyph: '◌'; --state-label: 'SAMPLING TERRITORIES'; }
+  [data-atlas-scene='weather'] { --state-glyph: '≋'; --state-label: 'READING PRESSURE'; }
+  [data-atlas-scene='ancestry'] { --state-glyph: '⑂'; --state-label: 'GROWING LINEAGE'; }
+  [data-atlas-scene='forensics'] { --state-glyph: '⌁'; --state-label: 'SCANNING EVIDENCE'; }
+  [data-atlas-scene='ubiquity'] { --state-glyph: '◎'; --state-label: 'MEASURING REACH'; }
+  [data-atlas-scene='habitat'] { --state-glyph: '⬡'; --state-label: 'LOCATING HABITATS'; }
+  [data-atlas-scene='gauge'] { --state-glyph: '◔'; --state-label: 'CALIBRATING GRAVITY'; }
+  [data-atlas-scene='spotlight'] { --state-glyph: '◉'; --state-label: 'FINDING CENTER'; }
+  [data-atlas-scene='overlap'] { --state-glyph: '◑'; --state-label: 'MERGING TERRITORIES'; }
+  [data-atlas-scene='passport'] { --state-glyph: '⊞'; --state-label: 'STAMPING CONTEXT'; }
+  [data-atlas-scene='contradiction'] { --state-glyph: '≠'; --state-label: 'COMPARING INTENT'; }
+  [data-atlas-scene='guilty'] { --state-glyph: '▦'; --state-label: 'HEATING SURVIVAL GRID'; }
+  [data-atlas-scene='gift'] { --state-glyph: '↝'; --state-label: 'SEQUENCING EMOTION'; }
+  [data-atlas-scene='language'] { --state-glyph: 'Aa'; --state-label: 'READING PHRASE CORPUS'; }
+  [data-atlas-scene='trend'] { --state-glyph: '↗'; --state-label: 'WEIGHING WORD GRAVITY'; }
+  [data-atlas-scene='generator'] { --state-glyph: '⫶'; --state-label: 'SPINNING PHRASE MACHINE'; }
+  [data-atlas-scene='roast'] { --state-glyph: '82'; --state-label: 'AUDITING ORIGINALITY'; }
+  [data-atlas-scene='degrees'] { --state-glyph: '⤳'; --state-label: 'WALKING SHORTEST PATH'; }
+  [data-atlas-scene='compass'] { --state-glyph: '⊙'; --state-label: 'PLOTTING ORBITS'; }
+  [data-atlas-scene='collision'] { --state-glyph: '◉◉'; --state-label: 'COLLIDING AUDIENCES'; }
+  [data-atlas-scene='transition'] { --state-glyph: '⇢'; --state-label: 'BUILDING MIX BRIDGE'; }
+  [data-atlas-scene='mirror'] { --state-glyph: '◇◇'; --state-label: 'SCANNING FOR TWINS'; }
+  [data-atlas-scene='blend'] { --state-glyph: '⦿'; --state-label: 'MIXING CONSENSUS'; }
+  [data-atlas-scene='graveyard'] { --state-glyph: '╫'; --state-label: 'OPENING REMOVAL LEDGER'; }
+  [data-atlas-scene='forgotten'] { --state-glyph: '↘'; --state-label: 'MEASURING DECAY'; }
+  [data-atlas-scene='capsule'] { --state-glyph: '◍'; --state-label: 'UNSEALING ERA'; }
+
+  @media (max-width: 980px) {
+    .feature-signature {
+      top: 300px;
+      right: -90px;
+      width: 360px;
+      opacity: .24;
+    }
+  }
+  @media (max-width: 640px) {
+    .feature-signature {
+      top: 250px;
+      right: -130px;
+      width: 330px;
+      opacity: .17;
+      transform: rotate(-4deg);
+    }
+    [data-atlas-scene='compass'] .pv-panel { border-radius: 80px; }
+    [data-atlas-scene='habitat'] .pv-cell:nth-child(n) { transform: none; }
+    [data-atlas-scene='gift'] .pv-cell,
+    [data-atlas-scene='blend'] .pv-cell { border-radius: 24px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .feature-signature *,
+    [data-atlas-scene] .pv-cell { animation: none !important; transition: none !important; }
+  }
+
+  /* ── Editorial refinement ───────────────────────────────────────────────
+     Keep the atlas cinematic, but let the evidence lead. Route identity now
+     comes from composition and data marks rather than novelty silhouettes. */
+  .pv {
+    font-family: 'Instrument Sans', sans-serif;
+  }
+
+  /* Decorative geometry was intentionally removed. Data graphics remain in
+     their owning features, but the shell no longer draws scenery behind them. */
+  .cinematic-field {
+    display: none;
+  }
+
+  .atlas-motif,
+  .atlas-environment-svg,
+  .feature-signature {
+    display: none;
+  }
+
+  .atlas-main::after {
+    opacity: .07;
+  }
+
+  .atlas-coordinate-rail {
+    display: none;
+  }
+
+  .atlas-route-stamp {
+    width: clamp(148px, 18vw, 230px);
+    border-color: color-mix(in srgb, var(--route-accent) 28%, transparent);
+    opacity: .64;
+  }
+
+  .atlas-route-stamp span {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .13em;
+  }
+
+  .atlas-route-stamp small {
+    margin-top: 4px;
+    font-size: 8px;
+    letter-spacing: .1em;
+  }
+
+  .atlas-motif {
+    opacity: .16;
+  }
+
+  .atlas-atmosphere:has(.feature-signature) .atlas-motif {
+    opacity: .055;
+  }
+
+  .atlas-environment-svg {
+    opacity: .1;
+    filter: none;
+  }
+
+  .feature-signature {
+    top: clamp(260px, 29vw, 370px);
+    width: clamp(220px, 24vw, 350px);
+    padding: 0;
+    border: 0;
+    background: none;
+    opacity: .17;
+    transform: none;
+  }
+
+  .feature-signature-head,
+  .feature-signature p {
+    display: none;
+  }
+
+  .feature-signature svg {
+    stroke-width: .72;
+  }
+
+  .scene-cut.is-active {
+    animation-duration: 560ms;
+  }
+
+  .scene-cut-bar {
+    background: color-mix(in srgb, var(--route-accent) 3%, #070907);
+  }
+
+  .scene-cut-bar:nth-child(2) {
+    background: color-mix(in srgb, var(--route-accent) 5%, #070907);
+  }
+
+  .atlas-main:not([data-atlas-scene='atlas']) .pv-hero {
+    max-width: 760px;
+    min-height: clamp(126px, 15vw, 180px);
+    margin: 0 0 clamp(24px, 3vw, 40px);
+    text-align: left;
+  }
+
+  .atlas-main:not([data-atlas-scene='atlas']) .pv-hero :is(h1, p) {
+    margin-left: 0;
+    text-align: left;
+  }
+
+  .atlas-main:not([data-atlas-scene='atlas']) .pv-hero h1,
+  [data-atlas-family] .pv-hero h1 {
+    max-width: 780px;
+    color: var(--text-hi);
+    font-size: clamp(46px, 6vw, 78px);
+    font-style: normal;
+    font-weight: 700;
+    letter-spacing: -.042em;
+    line-height: .92;
+    text-transform: none;
+    text-shadow: none;
+    -webkit-text-stroke: 0;
+    clip-path: none;
+    transform: none;
+  }
+
+  .atlas-main:not([data-atlas-scene='atlas']) .pv-eyebrow {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .11em;
+  }
+
+  .atlas-main:not([data-atlas-scene='atlas']) .pv-hero p {
+    max-width: 660px;
+    margin-top: 16px;
+    color: rgba(224, 229, 223, .64);
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  .atlas-main:not([data-atlas-scene='atlas']) :is(.pv-panel, .pv-stat, .pv-cell, .pv-search-route) {
+    border-radius: 2px;
+    clip-path: none;
+    transform: none;
+  }
+
+  .atlas-main:not([data-atlas-scene='atlas']) :is(.pv-panel, .pv-stat) {
+    box-shadow: none;
+  }
+
+  .atlas-main:not([data-atlas-scene='atlas']) .pv-cell {
+    text-align: left;
+  }
+
+  .atlas-main .pv-panel::after,
+  .atlas-main .pv-stat::after {
+    width: 10px;
+    height: 10px;
+    border-width: 1px;
+    opacity: .36;
+  }
+
+  .atlas-main:not([data-atlas-scene='atlas']) .pv-cell:hover,
+  .atlas-main:not([data-atlas-scene='atlas']) .pv-panel:hover {
+    border-color: color-mix(in srgb, var(--route-accent) 30%, rgba(255,255,255,.1));
+    box-shadow: none;
+    filter: none;
+    translate: 0 -1px;
+  }
+
+  .atlas-main .pv-panel:has(.atlas-lottie)::before {
+    content: var(--state-label, 'Calibrating signal');
+    color: color-mix(in srgb, var(--route-accent) 52%, #dce3dd 48%);
+    font: 700 9px/1.3 'JetBrains Mono', monospace;
+    letter-spacing: .12em;
+    text-shadow: none;
+  }
+
+  .atlas-main .pv-panel:has(.atlas-lottie)::first-line {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    line-height: 1.3;
+    letter-spacing: .12em;
+  }
+
+  .atlas-main .pv-panel:has(.atlas-lottie) .atlas-lottie {
+    opacity: .075;
+    filter: grayscale(1);
+  }
+
+  .pv-home-stage {
+    min-height: clamp(500px, 64vh, 650px);
+  }
+
+  .pv-home > .pv-top,
+  .pv-home > .pv-home-stage,
+  .pv-home > .max-w-6xl {
+    width: min(100%, 1180px);
+    max-width: 1180px;
+    margin-inline: auto;
+  }
+
+  .pv-home[data-motion-ready='true'] [data-motion-reveal] {
+    opacity: 1;
+    transform: none;
+  }
+
+  .pv-home .pv-room-entry.atlas-rise {
+    opacity: 1;
+    transform: none;
+    animation: none;
+  }
+
+  .genre-projection {
+    position: relative;
+    min-height: 560px;
+    overflow: hidden;
+    border: 1px solid var(--hairline);
+    background:
+      linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px),
+      rgba(4,7,6,.42);
+    background-size: 10% 10%;
+  }
+
+  .genre-projection::before,
+  .genre-projection::after {
+    content: '';
+    position: absolute;
+    z-index: 0;
+    background: rgba(224,230,224,.18);
+    pointer-events: none;
+  }
+
+  .genre-projection::before {
+    left: 7%;
+    right: 7%;
+    top: 50%;
+    height: 1px;
+  }
+
+  .genre-projection::after {
+    top: 9%;
+    bottom: 9%;
+    left: 50%;
+    width: 1px;
+  }
+
+  .genre-axis {
+    position: absolute;
+    z-index: 2;
+    color: var(--text-low);
+    font: 600 8px/1 'JetBrains Mono', monospace;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    pointer-events: none;
+  }
+
+  .genre-axis-x {
+    right: 16px;
+    bottom: 12px;
+  }
+
+  .genre-axis-y {
+    left: 12px;
+    top: 16px;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+  }
+
+  .genre-point {
+    position: absolute;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 44px;
+    min-height: 44px;
+    border: 0;
+    background: transparent;
+    color: var(--text-mid);
+    cursor: pointer;
+    transform: translate(-50%, -50%);
+    text-align: left;
+  }
+
+  .genre-point i {
+    width: var(--point-size);
+    height: var(--point-size);
+    flex: 0 0 auto;
+    border: 1px solid color-mix(in srgb, var(--point-color) 72%, #dce3dd 28%);
+    background: color-mix(in srgb, var(--point-color) 64%, #0a0d0b 36%);
+    transition: transform 180ms cubic-bezier(.22,1,.36,1), background-color 180ms ease;
+  }
+
+  .genre-point span {
+    max-width: 110px;
+    padding: 3px 5px;
+    background: rgba(5,8,6,.82);
+    color: var(--text-mid);
+    font-size: 10px;
+    line-height: 1.15;
+  }
+
+  .genre-point:hover i,
+  .genre-point:focus-visible i,
+  .genre-point.is-selected i {
+    background: var(--point-color);
+    transform: scale(1.16);
+  }
+
+  .genre-point.is-selected {
+    z-index: 4;
+  }
+
+  .genre-point.is-selected span {
+    color: var(--text-hi);
+    font-weight: 700;
+  }
+
+  @media (max-width: 640px) {
+    .mood-coverage {
+      grid-template-columns: 1fr;
+    }
+
+    .mood-coverage > div {
+      padding: 12px 0;
+      border-width: 0 0 1px;
+      border-color: var(--hairline);
+    }
+
+    .mood-coverage > div:last-child {
+      border-bottom: 0;
+    }
+
+    .mood-evidence-row {
+      grid-template-columns: 26px minmax(0, 1fr) 58px;
+      gap: 8px;
+    }
+
+    .mood-evidence-terms {
+      display: none;
+    }
+
+    .genre-projection {
+      min-height: 470px;
+    }
+
+    .genre-point span {
+      max-width: 74px;
+      font-size: 9px;
+    }
+  }
+
+  .pv-home-copy h1 {
+    max-width: 650px;
+    font-size: clamp(62px, 7vw, 106px);
+    font-weight: 700;
+    letter-spacing: -.045em;
+    line-height: .88;
+  }
+
+  .corpus-signal {
+    border-color: color-mix(in srgb, var(--accent) 22%, rgba(255,255,255,.09));
+    box-shadow: 0 24px 70px rgba(0,0,0,.22);
+    clip-path: none;
+  }
+
+  .corpus-signal::after {
+    display: none;
+  }
+
+  .corpus-console-head,
+  .corpus-console-foot {
+    letter-spacing: .09em;
+  }
+
+  .corpus-readout {
+    border-left-width: 1px;
+    box-shadow: none;
+  }
+
+  @media (max-width: 980px) {
+    .feature-signature {
+      right: -70px;
+      opacity: .11;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .cinematic-field {
+      opacity: .38;
+    }
+
+    .atlas-route-stamp {
+      display: none;
+    }
+
+    .atlas-environment-svg {
+      opacity: .06;
+    }
+
+    .feature-signature {
+      top: 230px;
+      right: -150px;
+      opacity: .075;
+      transform: none;
+    }
+
+    .atlas-main:not([data-atlas-scene='atlas']) .pv-hero h1 {
+      font-size: clamp(44px, 14vw, 62px);
+    }
+
+    .pv-home-copy h1 {
+      font-size: clamp(52px, 14.5vw, 70px);
+    }
+  }
+}
+/* Evidence contracts sit beneath the instrument, as methodology rather than
+   another dashboard card. */
+.atlas-evidence-contract {
+  margin-top: clamp(2.5rem, 6vw, 5rem);
+  border-block: 1px solid var(--hairline);
+  color: var(--text-mid);
+}
+
+.atlas-evidence-status {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  border-bottom: 1px solid var(--hairline);
+  font: 600 9px/1.2 var(--font-mono);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text-low);
+}
+
+.atlas-evidence-status > span:not(.atlas-share-wrap) {
+  padding: .38rem .58rem;
+  border: 1px solid var(--hairline);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+}
+
+.atlas-evidence-status [data-confidence='measured'] { color: #65d786; }
+.atlas-evidence-status [data-confidence='model-assisted'] { color: #b8a3ff; }
+.atlas-evidence-status [data-confidence='contextual'] { color: #e6bf68; }
+
+.atlas-share-wrap { margin-inline-start: auto; }
+
+.atlas-share-result {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .42rem;
+  padding: .4rem .65rem;
+  border: 1px solid var(--hairline);
+  color: var(--text-mid);
+  transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
+}
+
+.atlas-share-result:hover,
+.atlas-share-result:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--hairline));
+  color: var(--text-hi);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+.atlas-evidence-contract summary {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  cursor: pointer;
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--text-hi);
+}
+
+.atlas-evidence-contract summary::-webkit-details-marker { display: none; }
+.atlas-evidence-contract summary::after { content: '+'; color: var(--accent); font-size: 14px; }
+.atlas-evidence-contract details[open] summary::after { content: '−'; }
+.atlas-evidence-summary { margin-inline-start: auto; color: var(--text-low); letter-spacing: .08em; }
+
+.atlas-evidence-contract dl {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--hairline);
+  border-top: 1px solid var(--hairline);
+}
+
+.atlas-evidence-contract dl > div {
+  min-width: 0;
+  padding: 1rem;
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+}
+
+.atlas-evidence-contract dt {
+  margin-bottom: .5rem;
+  font: 600 9px/1.2 var(--font-mono);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--text-low);
+}
+
+.atlas-evidence-contract dd {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+@media (max-width: 760px) {
+  .atlas-evidence-summary { display: none; }
+  .atlas-evidence-status { flex-wrap: wrap; padding-block: .55rem; }
+  .atlas-share-wrap { margin-inline-start: 0; width: 100%; }
+  .atlas-share-result { width: 100%; min-height: 44px; }
+  .atlas-evidence-contract dl { grid-template-columns: 1fr; }
 }

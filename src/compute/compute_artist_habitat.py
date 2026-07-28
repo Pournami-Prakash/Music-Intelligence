@@ -99,45 +99,52 @@ def main():
     for h in HABITATS:
         print(f"    {h}: {playlists[h].sum():,} playlists", flush=True)
 
-    # Join: playlist_tracks → tracks → filter to top-N artists → join habitat labels
-    print("\nJoining tracks to playlists...", flush=True)
+    # Join and aggregate inside DuckDB. A playlist can contain several tracks by
+    # the same artist, so the unit must be one artist-playlist pair—not one track
+    # row. The former implementation summed track rows and divided by distinct
+    # playlists, inflating habitat percentages.
+    print("\nJoining and deduplicating artist-playlist pairs...", flush=True)
     pt_path = _CACHE_DIR / "playlist_tracks.parquet"
     tr_path = _CACHE_DIR / "tracks.parquet"
 
-    # Use DuckDB for the join — faster than pandas merge on 66M rows
+    # Use DuckDB for the full aggregation so 66M joined rows are never
+    # materialised in pandas.
     con.register("playlists_hab", playlists)
-    joined = con.execute(f"""
-        SELECT t.artist_name, ph.*
-        FROM read_parquet('{pt_path}') pt
-        JOIN read_parquet('{tr_path}') t ON pt.track_uri = t.track_uri
-        JOIN playlists_hab ph ON pt.pid = ph.pid
-    """).df()
-
-    print(f"  Joined {len(joined):,} rows", flush=True)
-    con.close()
-
-    # Filter to top-N artists
-    joined = joined[joined["artist_name"].str.lower().isin(artist_names)]
-    print(f"  After top-N filter: {len(joined):,} rows, {joined['artist_name'].nunique():,} artists", flush=True)
-
-    # Aggregate: per artist, count distinct playlists per habitat
-    # We use the pid column to count distinct playlists
-    print("\nAggregating habitat counts per artist...", flush=True)
     habitat_cols = list(HABITATS.keys())
-
-    agg = (
-        joined
-        .groupby("artist_name")
-        .agg(
-            playlist_count=("pid", "nunique"),
-            **{h: (h, "sum") for h in habitat_cols}
-        )
-        .reset_index()
+    con.register("top_artists", pd.DataFrame({"artist_name_lc": sorted(artist_names)}))
+    select_flags = ",\n                ".join(
+        f"max(ph.{h})::INTEGER AS {h}" for h in habitat_cols
     )
+    sum_flags = ",\n            ".join(
+        f"sum({h})::BIGINT AS {h}" for h in habitat_cols
+    )
+    agg = con.execute(f"""
+        WITH artist_playlist AS (
+            SELECT
+                t.artist_name,
+                pt.pid,
+                {select_flags}
+            FROM read_parquet('{pt_path}') pt
+            JOIN read_parquet('{tr_path}') t ON pt.track_uri = t.track_uri
+            JOIN top_artists a ON lower(t.artist_name) = a.artist_name_lc
+            JOIN playlists_hab ph ON pt.pid = ph.pid
+            GROUP BY t.artist_name, pt.pid
+        )
+        SELECT
+            artist_name,
+            count(*)::BIGINT AS playlist_count,
+            {sum_flags}
+        FROM artist_playlist
+        GROUP BY artist_name
+        ORDER BY playlist_count DESC
+    """).df()
+    con.close()
 
     # Add percentage columns
     for h in habitat_cols:
         agg[f"{h}_pct"] = (agg[h] / agg["playlist_count"].clip(lower=1) * 100).round(2)
+        if (agg[f"{h}_pct"] > 100).any():
+            raise RuntimeError(f"{h}_pct exceeded 100%; artist-playlist deduplication failed")
 
     # Sort by playlist_count
     agg = agg.sort_values("playlist_count", ascending=False).reset_index(drop=True)

@@ -23,20 +23,45 @@ def _guard_heavy_legacy():
         raise HTTPException(410, detail="served_statically: use the frontend /data/*.json snapshot")
 
 _ERA_MAP = {
-    "60s": (1960, 1969), "70s": (1970, 1979), "80s": (1980, 1989),
-    "90s": (1990, 1999), "2000s": (2000, 2009), "2010s": (2010, 2019),
+    "60s": (1960, 1969), "1960s": (1960, 1969),
+    "70s": (1970, 1979), "1970s": (1970, 1979),
+    "80s": (1980, 1989), "1980s": (1980, 1989),
+    "90s": (1990, 1999), "1990s": (1990, 1999),
+    "2000s": (2000, 2009), "2010s": (2010, 2019),
     "2020s": (2020, 2029),
 }
 
 _MOOD_PAIRS = {
     "sad":    ["gym", "workout", "hype", "party", "banger", "pump", "energy"],
     "happy":  ["sad", "cry", "heartbreak", "miss", "broken", "pain"],
+    "angry":  ["calm", "chill", "sleep", "soft", "peace"],
+    "heartbreak": ["party", "dance", "happy", "celebration", "love"],
+    "anxious": ["calm", "chill", "sleep", "focus", "relax"],
+    "lonely": ["party", "friends", "social", "together", "dance"],
     "gym":    ["sleep", "sad", "cry", "study", "focus", "calm", "ambient"],
     "party":  ["sleep", "study", "focus", "calm", "sad", "cry", "ambient"],
     "study":  ["party", "hype", "banger", "turn up", "dance", "club"],
     "sleep":  ["gym", "workout", "hype", "party", "dance", "energy", "pump"],
     "chill":  ["gym", "hype", "party", "banger", "pump", "energy", "intense"],
 }
+
+_MOOD_KEYWORDS = {
+    "sad": ["sad", "sadness"],
+    "happy": ["happy", "happiness", "joy"],
+    "angry": ["angry", "anger", "rage"],
+    "heartbreak": ["heartbreak", "heartbroken", "breakup"],
+    "anxious": ["anxious", "anxiety", "panic", "nervous"],
+    "lonely": ["lonely", "loneliness", "alone"],
+    "gym": ["gym", "workout", "work out"],
+    "party": ["party", "partying"],
+    "study": ["study", "studying", "focus"],
+    "sleep": ["sleep", "sleeping", "bedtime"],
+    "chill": ["chill", "chilling", "relax"],
+}
+
+
+def _bounded_pattern(terms: list[str]) -> str:
+    return r"(?<!\w)(?:" + "|".join(re.escape(term) for term in terms) + r")(?!\w)"
 
 # Editorial playlists include a lot of non-music content (language courses,
 # audiobooks, meditation, comedy, lectures). These dominate "longest run" and
@@ -156,12 +181,6 @@ def forgotten_hits(min_days: int = 180, limit: int = 50):
 
 @router.get("/api/time-capsule")
 def time_capsule(era: str = "2010s", limit: int = 20):
-    _guard_heavy_legacy()
-    tracks_df   = _load_computed("processed/editorial_playlist_tracks.parquet")
-    playlist_df = _load_computed("processed/editorial_playlists.parquet")
-    if tracks_df is None:
-        raise HTTPException(503, detail="not_ready")
-
     era_clean = era.strip().lower()
     y_min: Optional[int] = None
     y_max: Optional[int] = None
@@ -172,6 +191,13 @@ def time_capsule(era: str = "2010s", limit: int = 20):
         y = int(era_clean)
         y_min, y_max = y, y
     else:
+        # Named capsules are intentionally based on playlist membership and
+        # remain a separate, explicitly editorial query.
+        _guard_heavy_legacy()
+        tracks_df   = _load_computed("processed/editorial_playlist_tracks.parquet")
+        playlist_df = _load_computed("processed/editorial_playlists.parquet")
+        if tracks_df is None:
+            raise HTTPException(503, detail="not_ready")
         if playlist_df is not None:
             pl_match = playlist_df[playlist_df["name"].str.lower().str.contains(era_clean, na=False)]
             if not pl_match.empty:
@@ -180,19 +206,11 @@ def time_capsule(era: str = "2010s", limit: int = 20):
                 df["date_added"] = pd.to_datetime(df["date_added"], errors="coerce")
                 df = df[df["date_added"].notna() & df["playlist_id"].isin(matched_ids)]
                 df = _drop_nonmusic_by_playlist(df, playlist_df)
-                return _time_capsule_response(era, df, y_min, y_max, "editorial")
+                return _time_capsule_response(era, df, y_min, y_max, "playlist_add_date")
         raise HTTPException(400, detail=f"era_not_recognised: {era}")
 
-    df = tracks_df.copy()
-    df["date_added"] = pd.to_datetime(df["date_added"], errors="coerce")
-    df = df[df["date_added"].notna()]
-    if y_min is not None:
-        df = df[(df["date_added"].dt.year >= y_min) & (df["date_added"].dt.year <= y_max)]
-    df = _drop_nonmusic_by_playlist(df, playlist_df)
-
-    if not df.empty:
-        return _time_capsule_response(era, df, y_min, y_max, "editorial")
-
+    # Decade/year capsules are defined by release year. Playlist-add dates tell
+    # us when an editor rediscovered a track, not which era the track belongs to.
     era_df = _load_computed("computed/era_tracks.parquet")
     if era_df is None:
         raise HTTPException(503, detail="era_tracks_not_ready")
@@ -227,9 +245,15 @@ def time_capsule(era: str = "2010s", limit: int = 20):
         "era":         era,
         "track_count": int(len(sub)),
         "data_source": "release_year",
+        "method_version": "release-year-v2",
         "date_range":  {"min": str(int(sub["release_year"].min())), "max": str(int(sub["release_year"].max()))},
         "top_tracks": [
-            {"title": r["track_name"], "artist": r["artist_name"], "appearances": int(r["playlist_count"])}
+            {
+                "title": r["track_name"],
+                "artist": r["artist_name"],
+                "release_year": int(r["release_year"]),
+                "appearances": int(r["playlist_count"]),
+            }
             for _, r in top_tracks.iterrows()
         ],
         "top_artists": [
@@ -241,6 +265,12 @@ def time_capsule(era: str = "2010s", limit: int = 20):
             for _, r in year_dist.iterrows()
         ],
         "chart_number_ones": _era_chart_ones(y_min, y_max),
+        "evidence": {
+            "metric": "Tracks released in the selected era, ranked by playlist reach",
+            "population": "Tracks with a known release year in the playlist corpus",
+            "source": "Deezer-enriched release years and playlist counts",
+            "limitations": ["Tracks without a resolved release year are excluded"],
+        },
     }
 
 
@@ -255,6 +285,12 @@ def _era_chart_ones(y_min: Optional[int], y_max: Optional[int]) -> list:
         (ch_df["peak_year"] >= y_min) &
         (ch_df["peak_year"] <= y_max)
     ].sort_values("max_streams_week", ascending=False)
+    # Different Spotify URIs can represent the same title/artist recording.
+    # Keep the strongest chart record once so the capsule does not repeat it.
+    era_ch = era_ch.assign(
+        _title_key=era_ch["track_name"].str.lower().str.strip(),
+        _artist_key=era_ch["artist_name"].str.lower().str.strip(),
+    ).drop_duplicates(["_title_key", "_artist_key"], keep="first")
     return [
         {
             "title":            r["track_name"],
@@ -325,11 +361,16 @@ def mood_contradiction(mood: str = "sad", limit: int = 20):
     contrary_keywords = _MOOD_PAIRS.get(mood_clean)
     if contrary_keywords is None:
         contrary_keywords = ["party", "hype", "gym"] if "sad" in mood_clean else ["sad", "cry", "heartbreak"]
+    mood_keywords = _MOOD_KEYWORDS.get(mood_clean, [mood_clean])
 
     pl = playlist_df.copy()
     pl["name_lower"] = pl["name"].str.lower().fillna("")
-    pl["is_mood"]     = pl["name_lower"].str.contains(mood_clean, regex=False, na=False)
-    pl["is_contrary"] = pl["name_lower"].str.contains("|".join(contrary_keywords), regex=True, na=False)
+    pl["is_mood"]     = pl["name_lower"].str.contains(
+        _bounded_pattern(mood_keywords), regex=True, na=False
+    )
+    pl["is_contrary"] = pl["name_lower"].str.contains(
+        _bounded_pattern(contrary_keywords), regex=True, na=False
+    )
 
     mood_ids     = set(pl[pl["is_mood"]]["playlist_id"].tolist())
     contrary_ids = set(pl[pl["is_contrary"]]["playlist_id"].tolist())
@@ -365,9 +406,11 @@ def mood_contradiction(mood: str = "sad", limit: int = 20):
 
     return {
         "mood":               mood_clean,
+        "mood_keywords":      mood_keywords,
         "contrary_moods":     contrary_keywords[:4],
         "mood_playlists":     len(mood_ids),
         "contrary_playlists": len(contrary_ids),
+        "method_version":     "bounded-title-context-v2",
         "tracks": [
             {
                 "title":               r["track_name"],
@@ -378,4 +421,13 @@ def mood_contradiction(mood: str = "sad", limit: int = 20):
             }
             for _, r in merged.iterrows()
         ],
+        "evidence": {
+            "metric": "Track appearances across two keyword-defined playlist-title contexts",
+            "population": "Archived Spotify playlist-title reference set",
+            "source": "Playlist names and track membership",
+            "limitations": [
+                "Context labels come from playlist titles, not audio, lyrics, or listener intent",
+                "The two title-context groups may contain broad or ambiguous language",
+            ],
+        },
     }

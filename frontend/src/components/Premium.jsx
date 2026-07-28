@@ -1,4 +1,7 @@
 import { Search } from 'lucide-react'
+import { useLocation } from 'react-router-dom'
+import EvidencePanel from './EvidencePanel'
+import { FEATURE_EVIDENCE } from '../data/featureEvidence'
 
 /**
  * Reusable shell for the clean-premium ("Apple-like") page language.
@@ -6,7 +9,13 @@ import { Search } from 'lucide-react'
  */
 
 export function PvPage({ children }) {
-  return <div className="pv">{children}</div>
+  const { pathname } = useLocation()
+  return (
+    <div className="pv">
+      {children}
+      <EvidencePanel evidence={FEATURE_EVIDENCE[pathname]} pathname={pathname} />
+    </div>
+  )
 }
 
 export function PvTop({ brand = 'Music Intelligence Atlas', sub, pill }) {

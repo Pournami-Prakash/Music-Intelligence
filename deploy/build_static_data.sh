@@ -18,13 +18,13 @@ fetch() {  # fetch <url-path> <outfile>
 
 # mood-contradiction is a heavy GROUP BY gated off in prod — the backend must run
 # with ENABLE_LEGACY_HEAVY_ENDPOINTS=1 and ample memory (e.g. DUCKDB_MEMORY_LIMIT=1GB)
-# for this to succeed. The 5 predefined moods are combined into one keyed file.
+# for this to succeed. The predefined comparisons are combined into one keyed file.
 echo "  mood-contradiction.json"
 python3 - "$API" "$OUT" <<'PY'
 import json, sys, urllib.request, urllib.error
 api, out = sys.argv[1], sys.argv[2]
 res = {}
-for m in ["sad", "angry", "heartbreak", "anxious", "lonely"]:
+for m in ["sad", "happy", "angry", "heartbreak", "anxious", "lonely", "gym", "party", "study", "sleep", "chill"]:
     try:
         with urllib.request.urlopen(f"{api}/api/mood-contradiction?mood={m}&limit=12", timeout=90) as r:
             res[m] = json.load(r)
@@ -42,6 +42,46 @@ fetch "/api/forgotten-hits"             "forgotten-hits.json"
 for era in 1960s 1970s 1980s 1990s 2000s 2010s 2020s; do
   fetch "/api/time-capsule?era=$era&limit=20" "time-capsule-$era.json"
 done
+
+echo "  doppelganger-examples.json"
+python3 - "$API" "$OUT" <<'PY'
+import json, sys, urllib.parse, urllib.request
+api, out = sys.argv[1], sys.argv[2]
+artists = [
+    "Drake", "Radiohead", "Tyler, The Creator", "SZA", "Taylor Swift",
+    "The Weeknd", "Kanye West", "Kendrick Lamar", "Billie Eilish",
+]
+res = {}
+for artist in artists:
+    url = f"{api}/api/doppelganger/{urllib.parse.quote(artist, safe='')}"
+    with urllib.request.urlopen(url, timeout=180) as response:
+        res[artist.lower()] = json.load(response)
+with open(f"{out}/doppelganger-examples.json", "w") as f:
+    json.dump(res, f, ensure_ascii=False)
+PY
+
+echo "  song-passport-examples.json"
+python3 - "$API" "$OUT" <<'PY'
+import json, sys, urllib.parse, urllib.request
+api, out = sys.argv[1], sys.argv[2]
+titles = [
+    "Mr. Brightside", "Bohemian Rhapsody", "HUMBLE.", "Shape of You",
+    "Blinding Lights",
+]
+res = {}
+for title in titles:
+    search_url = f"{api}/api/search-tracks?{urllib.parse.urlencode({'q': title, 'limit': 1})}"
+    with urllib.request.urlopen(search_url, timeout=120) as response:
+        matches = json.load(response).get("results", [])
+    if not matches:
+        raise RuntimeError(f"No indexed track found for static passport example: {title}")
+    query = urllib.parse.urlencode({"track_uri": matches[0]["uri"]})
+    url = f"{api}/api/song-passport/{urllib.parse.quote(title, safe='')}?{query}"
+    with urllib.request.urlopen(url, timeout=120) as response:
+        res[title.lower()] = json.load(response)
+with open(f"{out}/song-passport-examples.json", "w") as f:
+    json.dump(res, f, ensure_ascii=False)
+PY
 
 echo "done → $OUT"
 du -sh "$OUT"

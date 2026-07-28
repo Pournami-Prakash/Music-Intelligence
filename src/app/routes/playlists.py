@@ -1,11 +1,13 @@
 import random
 import re
+from collections import Counter
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 
-from src.app.cache import _load_computed
-from src.app.helpers import _to_list
+from src.app.cache import _load_computed, local_parquet, duck_all, duck_one, sp
+from src.app.helpers import _to_list, _extract_playlist_id
+from src.app.models import PlaylistUrlBody
 
 router = APIRouter()
 
@@ -16,6 +18,18 @@ _ROAST_VERDICTS = [
     (30, "Some originality detected. Someone might actually remember this title."),
     (0,  "Genuinely rare. Either very creative or very obscure — possibly both."),
 ]
+
+_NAME_THEME_MAP = {
+    "chill": ("mood", ["chill", "calm", "soft", "mellow"]),
+    "sad": ("mood", ["sad", "cry", "heartbreak", "melancholy"]),
+    "hype": ("mood", ["hype", "energy", "banger", "bops"]),
+    "romantic": ("mood", ["love", "romantic", "feelings"]),
+    "gym": ("activity", ["gym", "workout", "running", "pump"]),
+    "party": ("activity", ["party", "dance", "club", "pregame"]),
+    "study": ("activity", ["study", "focus", "reading", "work"]),
+    "summer": ("time", ["summer", "sunset", "june", "july"]),
+    "nostalgic": ("time", ["throwback", "nostalgia", "old school", "retro"]),
+}
 
 
 @router.get("/api/playlist-language")
@@ -39,6 +53,83 @@ def playlist_language(filter: str = "all", limit: int = 60):
             for _, r in rows.iterrows()
         ],
         "total_playlists": 1_000_000,
+    }
+
+
+@router.post("/api/playlist-profile")
+def playlist_profile(body: PlaylistUrlBody):
+    playlist_id = _extract_playlist_id(body.playlist_url)
+    if not playlist_id:
+        raise HTTPException(400, detail="invalid_playlist_url")
+    import_mode = "spotify_api"
+    try:
+        info = sp.playlist_info(playlist_id)
+        tracks = sp.playlist_tracks(playlist_id, limit=500)
+    except Exception:
+        try:
+            info, tracks = sp.playlist_embed(playlist_id)
+            import_mode = "public_embed_preview"
+        except Exception:
+            raise HTTPException(400, detail="playlist_import_failed")
+    if not tracks:
+        raise HTTPException(404, detail="playlist_empty")
+
+    terms_df = _load_computed("computed/playlist_title_terms.parquet")
+    if terms_df is None:
+        raise HTTPException(503, detail="not_ready")
+
+    title_text = (info.get("name") or "").casefold().replace("’", "'")
+    title_tokens = [
+        token[:-2] if token.endswith("'s") else token
+        for token in re.findall(r"[a-z0-9']+", title_text)
+        if len(token) > 1
+    ]
+    term_lookup = {
+        str(row["term"]).casefold(): row
+        for _, row in terms_df.iterrows()
+    }
+    title_terms = []
+    for token in dict.fromkeys(title_tokens):
+        row = term_lookup.get(token)
+        if row is None:
+            title_terms.append({
+                "word": token, "known": False, "count": 0, "pct": 0, "theme": None,
+            })
+        else:
+            title_terms.append({
+                "word": token,
+                "known": True,
+                "count": int(row["count"]),
+                "pct": float(row["pct"]),
+                "theme": row["theme"],
+            })
+
+    artist_counts = Counter(
+        track["artist"] for track in tracks if track.get("artist")
+    )
+    total = len(tracks)
+    followers = info.get("followers") or {}
+    owner = info.get("owner") or {}
+    return {
+        "playlist": {
+            "id": playlist_id,
+            "name": info.get("name") or "Untitled playlist",
+            "description": info.get("description") or "",
+            "owner": owner.get("display_name") or owner.get("id"),
+            "followers": followers.get("total"),
+            "track_count": total,
+            "import_mode": import_mode,
+        },
+        "title_terms": title_terms,
+        "top_artists": [
+            {
+                "artist": artist,
+                "tracks": count,
+                "pct": round(count / total * 100, 1),
+            }
+            for artist, count in artist_counts.most_common(10)
+        ],
+        "tracks": tracks[:20],
     }
 
 
@@ -89,7 +180,24 @@ def mood_map_clusters():
         }
         for _, r in df.iterrows()
     ]
-    return {"clusters": clusters, "total_playlists": 1_000_000}
+    first = df.iloc[0]
+    total = int(first.get("total_playlists", 1_000_000))
+    unique_matched = int(first.get("unique_matched_titles", sum(c["count"] for c in clusters)))
+    assignment_count = int(first.get("assignment_count", sum(c["count"] for c in clusters)))
+    return {
+        "clusters": clusters,
+        "total_playlists": total,
+        "unique_matched_titles": unique_matched,
+        "assignment_count": assignment_count,
+        "categories_overlap": bool(first.get("categories_overlap", True)),
+        "method_version": first.get("method_version", "legacy-keywords"),
+        "evidence": {
+            "metric": "Distinct playlist titles matching bounded mood or listening-context terms",
+            "population": f"{total:,} playlist titles",
+            "source": "Playlist-title corpus",
+            "limitations": ["Categories may overlap", "This does not analyse the audio or lyrics"],
+        },
+    }
 
 
 @router.get("/api/genre-weather/regions")
@@ -189,24 +297,53 @@ def roast(title: str = "vibes"):
     genericness = round(sum(h["score"] for h in hits) / max(len(words), 1), 1)
     verdict     = next(v for threshold, v in _ROAST_VERDICTS if genericness >= threshold)
 
-    examples = []
+    word_examples = []
     for h in sorted(hits, key=lambda x: -x["score"])[:2]:
         row = terms_df[terms_df["term"] == h["word"]]
         if not row.empty:
-            examples.extend(_to_list(row.iloc[0].get("example_titles"))[:3])
+            word_examples.extend(_to_list(row.iloc[0].get("example_titles"))[:3])
 
-    # Similar-title ceiling = the rarest word every copy must share (bottleneck).
-    # Any unrecognised word means exact twins are effectively nil.
-    similar_count = 0 if (misses or not hits) else int(min(h["count"] for h in hits))
+    normalized_title = re.sub(r"[^\w]+", " ", title.lower()).strip()
+    exact_count = 0
+    exact_examples: list[str] = []
+    playlists_path = local_parquet("processed/playlists.parquet")
+    if playlists_path is not None and normalized_title:
+        normalizer = "lower(trim(regexp_replace(name, '[^[:alnum:]]+', ' ', 'g')))"
+        exact = duck_one(
+            f"SELECT count(*) FROM read_parquet('{playlists_path.as_posix()}') "
+            f"WHERE {normalizer} = ?",
+            [normalized_title],
+        )
+        exact_count = int(exact[0]) if exact else 0
+        exact_examples = [
+            str(row[0]) for row in duck_all(
+                f"SELECT DISTINCT name FROM read_parquet('{playlists_path.as_posix()}') "
+                f"WHERE {normalizer} = ? ORDER BY name LIMIT 5",
+                [normalized_title],
+            )
+        ]
 
     return {
         "title":         title,
+        "normalized_title": normalized_title,
         "genericness":   genericness,
         "verdict":       verdict,
         "word_scores":   hits,
         "rare_words":    misses,
-        "similar_count": similar_count,
-        "examples":      list(set(examples))[:5],
+        "exact_match_count": exact_count,
+        "exact_examples": exact_examples,
+        "word_examples": list(dict.fromkeys(word_examples))[:5],
+        # Compatibility aliases for older clients. They now carry exact-title
+        # evidence rather than a word-frequency ceiling.
+        "similar_count": exact_count,
+        "examples": exact_examples,
+        "method": "Exact normalized-title count plus per-word corpus percentiles",
+        "evidence": {
+            "metric": "Exact normalized title matches and term-frequency percentiles",
+            "population": "One million playlist titles",
+            "source": "Playlist-title corpus",
+            "limitations": ["Genericness is a playful term-frequency index, not a quality judgment"],
+        },
     }
 
 
@@ -218,12 +355,13 @@ def name_generator(theme: Optional[str] = None, count: int = 8):
 
     count = min(count, 20)
 
-    if theme and theme != "all":
-        pool = terms_df[terms_df["theme"] == theme]
-        if pool.empty:
-            pool = terms_df
-    else:
-        pool = terms_df
+    requested_theme = (theme or "all").strip().lower()
+    corpus_theme, requested_anchors = _NAME_THEME_MAP.get(
+        requested_theme, (requested_theme if requested_theme in {"mood", "activity", "time", "identity", "genre", "other"} else "all", [])
+    )
+    pool = terms_df if corpus_theme == "all" else terms_df[terms_df["theme"] == corpus_theme]
+    if pool.empty:
+        raise HTTPException(400, detail="unknown_name_theme")
 
     p25 = pool["count"].quantile(0.25)
     p75 = pool["count"].quantile(0.75)
@@ -231,25 +369,45 @@ def name_generator(theme: Optional[str] = None, count: int = 8):
     if len(mid) < 10:
         mid = pool
 
-    words = mid["term"].tolist()
+    words = [str(word) for word in mid["term"].tolist()]
+    available = set(str(word) for word in terms_df["term"].tolist())
+    anchors = [anchor for anchor in requested_anchors if anchor in available]
+    if not anchors:
+        anchors = words[: min(12, len(words))]
+    if not words or not anchors:
+        raise HTTPException(503, detail="name_terms_not_ready")
 
     def _cap(w: str) -> str:
         return " ".join(p.capitalize() for p in w.split())
 
-    names: set[str] = set()
+    # Deterministic generation makes results testable and reproducible. Each
+    # name includes a theme anchor and a real companion term from the same
+    # corpus category; no claim is made that the full generated phrase existed.
+    rng = random.Random(f"{requested_theme}:{count}")
+    names: list[str] = []
     attempts = 0
-    while len(names) < count and attempts < 200:
+    while len(names) < count and attempts < 300:
         attempts += 1
-        if len(words) >= 2:
-            w1, w2    = random.sample(words, 2)
-            candidate = f"{_cap(w1)} {_cap(w2)}"
-        else:
-            candidate = _cap(random.choice(words))
-        if len(candidate) > 4:
-            names.add(candidate)
+        anchor = rng.choice(anchors)
+        companion = rng.choice(words)
+        if companion == anchor:
+            continue
+        pair = [anchor, companion] if attempts % 2 else [companion, anchor]
+        candidate = " ".join(_cap(word) for word in pair)
+        if len(candidate) > 4 and candidate not in names:
+            names.append(candidate)
 
     return {
-        "theme":  theme or "all",
-        "names":  list(names)[:count],
+        "theme": requested_theme,
+        "corpus_theme": corpus_theme,
+        "names": names[:count],
         "source": f"{len(pool):,} real playlist terms",
+        "method": "Each generated name combines a requested-theme anchor with a real term from the matching corpus category.",
+        "anchors": anchors,
+        "evidence": {
+            "metric": "New combinations of observed playlist-title terms",
+            "population": f"{len(pool):,} terms in the {corpus_theme} category",
+            "source": "Playlist-title term corpus",
+            "limitations": ["Generated phrases are new combinations and are not claimed to be existing playlist titles"],
+        },
     }

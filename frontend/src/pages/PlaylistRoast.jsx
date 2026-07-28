@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom'
 import LottiePlayer from '../components/LottiePlayer'
 import { CountUp } from '../components/Observatory'
 import { PvPage, PvTop, PvHero, PvSearch, PvChips, PvPanel } from '../components/Premium'
+import { ErrorSignal } from '../components/SignalState'
 import { errorMessage, getJson } from '../lib/api'
 
 const SUGGESTIONS = ['vibes', 'chill', 'sad songs', 'summer', 'workout']
@@ -14,6 +15,7 @@ export default function PlaylistRoast() {
   const [query, setQuery] = useState('')
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const location = useLocation()
 
   useEffect(() => {
@@ -25,10 +27,11 @@ export default function PlaylistRoast() {
     if (!q?.trim()) return
     setLoading(true)
     setResult(null)
+    setError(null)
     try {
       setResult(await getJson(`/api/roast?title=${encodeURIComponent(q)}`))
     } catch (e) {
-      setResult({ title: q, genericness: 0, verdict: `Live endpoint unavailable — ${errorMessage(e)}.`, word_scores: [], examples: [], rare_words: [], similar_count: 0, _demo: true })
+      setError(errorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -57,7 +60,7 @@ export default function PlaylistRoast() {
           </div>
         )}
 
-        {!result && !loading && (
+        {!result && !loading && !error && (
           <div className="pv-panel grid place-items-center" style={{ minHeight: 300 }}>
             <div className="text-center max-w-md">
               <LottiePlayer src="/assets/search.json" className="w-40 h-40 mx-auto" />
@@ -66,19 +69,19 @@ export default function PlaylistRoast() {
           </div>
         )}
 
-        {result && !loading && (
+        {error && !loading && <ErrorSignal detail={error} onRetry={() => search(query)}>We couldn’t compare this title with the archive.</ErrorSignal>}
+        {result && !loading && !error && (
           <div className="space-y-4">
-            {result._demo && <p className="text-xs text-[var(--warning)]">{result.verdict}</p>}
             <div className="grid grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)] gap-4 items-start">
               <PvPanel label="Title citation" className="atlas-rise" style={{ '--i': 0 }}>
                 <p className="text-6xl font-extrabold tracking-[-0.04em]" style={{ color }}><CountUp value={g} /><span className="text-2xl align-top">%</span></p>
                 <p className="text-xs uppercase tracking-[0.14em] mt-1" style={{ color }}>{meterLabel(g)}</p>
-                <p className="text-[var(--text-mid)] text-sm mt-4"><CountUp value={result.similar_count} /> similar titles in the archive</p>
+                <p className="text-[var(--text-mid)] text-sm mt-4"><CountUp value={result.exact_match_count ?? result.similar_count} /> exact normalized-title matches</p>
               </PvPanel>
 
               <PvPanel label="Verdict" className="atlas-rise" style={{ '--i': 1 }}>
                 <p className="text-3xl sm:text-5xl font-extrabold leading-[0.95] tracking-[-0.04em] text-[var(--text-hi)] break-words">“{result.title}”</p>
-                {!result._demo && <p className="text-[var(--text-mid)] text-base sm:text-lg italic mt-5 max-w-3xl">{result.verdict}</p>}
+                <p className="text-[var(--text-mid)] text-base sm:text-lg italic mt-5 max-w-3xl">{result.verdict}</p>
                 <div className="mt-6 max-w-md">
                   <div className="h-2 rounded-full bg-white/10 overflow-hidden">
                     <div className="h-full rounded-full" style={{ width: `${g}%`, background: color }} />
@@ -105,10 +108,19 @@ export default function PlaylistRoast() {
               </PvPanel>
             )}
 
-            {result.examples?.length > 0 && (
-              <PvPanel label="Real playlists with this name" className="atlas-rise" style={{ '--i': 3 }}>
+            {result.exact_examples?.length > 0 && (
+              <PvPanel label="Exact title examples" className="atlas-rise" style={{ '--i': 3 }}>
                 <div className="flex flex-wrap gap-2">
-                  {result.examples.map((e, i) => (
+                  {result.exact_examples.map((e, i) => (
+                    <span key={e + i} className="text-sm text-[var(--text-mid)] border border-[var(--hairline)] rounded-full px-3 py-1.5">{e}</span>
+                  ))}
+                </div>
+              </PvPanel>
+            )}
+            {result.word_examples?.length > 0 && (
+              <PvPanel label="Titles containing the scored words" className="atlas-rise" style={{ '--i': 4 }}>
+                <div className="flex flex-wrap gap-2">
+                  {result.word_examples.map((e, i) => (
                     <span key={e + i} className="text-sm text-[var(--text-mid)] border border-[var(--hairline)] rounded-full px-3 py-1.5">{e}</span>
                   ))}
                 </div>

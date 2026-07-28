@@ -22,7 +22,7 @@ export default {
       fontFamily: {
         display: ['"Archivo Narrow"', 'sans-serif'],
         mono:    ['"JetBrains Mono"', 'monospace'],
-        body:    ['Inter', 'sans-serif'],
+        body:    ['"Instrument Sans"', 'sans-serif'],
       },
     },
   },

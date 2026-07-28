@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import LottiePlayer from '../components/LottiePlayer'
 import { CountUp } from '../components/Observatory'
 import { PvPage, PvTop, PvHero, PvSearch, PvChips, PvPanel } from '../components/Premium'
+import { ErrorSignal } from '../components/SignalState'
 import { errorMessage, getJson } from '../lib/api'
 
 const ACCENT = '#7AB89A'
@@ -22,6 +23,7 @@ export default function AncestryExplorer() {
   const [query, setQuery] = useState('')
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const location = useLocation()
 
   useEffect(() => {
@@ -33,10 +35,11 @@ export default function AncestryExplorer() {
     if (!q?.trim()) return
     setLoading(true)
     setData(null)
+    setError(null)
     try {
       setData(await getJson(`/api/ancestry/${encodeURIComponent(q)}`))
     } catch (e) {
-      setData({ artist: q, artist_tags: [], listeners: 0, lastfm_similar: [], ancestors: [], descendants: [], _demo: true, _error: errorMessage(e) })
+      setError(errorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -44,9 +47,9 @@ export default function AncestryExplorer() {
 
   return (
     <PvPage>
-      <PvTop sub="Deep Map" pill="Influence tree" />
-      <PvHero eyebrow="Music ancestry" title={data?.artist || 'Ancestry Explorer'}>
-        Search an artist and trace the lineage backward into influences and forward into descendants.
+      <PvTop sub="Deep Map" pill="Tag similarity" />
+      <PvHero eyebrow="Tag lineage" title={data?.artist || 'Tag Lineage'}>
+        Compare tag-similar artists above, near, and below the subject’s playlist reach.
       </PvHero>
 
       <PvSearch value={query} onChange={setQuery} onSubmit={() => search(query)} placeholder="Artist name…" button="Explore" loading={loading} icon />
@@ -57,29 +60,29 @@ export default function AncestryExplorer() {
           <div className="pv-panel grid place-items-center" style={{ minHeight: 320 }}>
             <div className="text-center">
               <LottiePlayer src="/assets/cloud-technology.lottie" className="w-32 h-32 mx-auto" />
-              <p className="mt-2 text-[var(--text-mid)]">Tracing lineage…</p>
+              <p className="mt-2 text-[var(--text-mid)]">Comparing tag neighborhoods…</p>
             </div>
           </div>
         )}
 
-        {!data && !loading && (
+        {!data && !loading && !error && (
           <div className="pv-panel grid place-items-center" style={{ minHeight: 320 }}>
             <div className="text-center max-w-md">
               <LottiePlayer src="/assets/cloud-technology.lottie" className="w-32 h-32 mx-auto" />
-              <p className="mt-2 text-[var(--text-mid)]">Search an artist to explore their lineage.</p>
+              <p className="mt-2 text-[var(--text-mid)]">Search an artist to compare their tag neighborhood.</p>
             </div>
           </div>
         )}
 
-        {data && !loading && (
+        {error && !loading && <ErrorSignal detail={error} onRetry={() => search(query)}>We couldn’t build this artist’s ancestry record.</ErrorSignal>}
+        {data && !loading && !error && (
           <div className="grid grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)] gap-4 items-start">
             <PvPanel label="Subject file" className="atlas-rise" style={{ '--i': 0 }}>
-              {data._demo && <p className="mb-3 text-xs text-[var(--warning)]">Sample data — {data._error || 'live endpoint unavailable'}.</p>}
               <p className="text-2xl font-bold text-[var(--text-hi)]">{data.artist}</p>
               {data.listeners > 0 && <p className="text-[var(--text-mid)] text-sm mt-1"><CountUp value={data.listeners} /> listeners</p>}
               <div className="grid grid-cols-2 gap-3 mt-4">
-                <div className="pv-cell"><small>Influences</small><strong>{data.ancestors?.length || 0}</strong></div>
-                <div className="pv-cell"><small>Descendants</small><strong>{data.descendants?.length || 0}</strong></div>
+                <div className="pv-cell"><small>Higher reach</small><strong>{data.higher_reach?.length || 0}</strong></div>
+                <div className="pv-cell"><small>Lower reach</small><strong>{data.lower_reach?.length || 0}</strong></div>
               </div>
               {data.artist_tags?.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-4">
@@ -92,16 +95,16 @@ export default function AncestryExplorer() {
 
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <PvPanel label="← Ancestors (influences)" className="atlas-rise" style={{ '--i': 1 }}>
-                  {data.ancestors?.length > 0
-                    ? data.ancestors.map((a, i) => <ArtistRow key={a.name || a} name={a.name || a} meta={a.similarity ? `${Math.round(a.similarity * 100)}%` : null} i={i} />)
-                    : <p className="text-[var(--text-low)] text-sm">No clear ancestors in this dataset.</p>}
+                <PvPanel label="Higher-reach tag neighbors" className="atlas-rise" style={{ '--i': 1 }}>
+                  {data.higher_reach?.length > 0
+                    ? data.higher_reach.map((a, i) => <ArtistRow key={a.name || a} name={a.name || a} meta={a.similarity ? `${Math.round(a.similarity * 100)}%` : null} i={i} />)
+                    : <p className="text-[var(--text-low)] text-sm">No higher-reach neighbors met the similarity threshold.</p>}
                 </PvPanel>
 
-                <PvPanel label="Descendants →" className="atlas-rise" style={{ '--i': 2 }}>
-                  {data.descendants?.length > 0
-                    ? data.descendants.slice(0, 8).map((d, i) => <ArtistRow key={d.name} name={d.name} meta={d.similarity ? `${Math.round(d.similarity * 100)}%` : null} i={i} />)
-                    : <p className="text-[var(--text-low)] text-sm">No descendants found.</p>}
+                <PvPanel label="Lower-reach tag neighbors" className="atlas-rise" style={{ '--i': 2 }}>
+                  {data.lower_reach?.length > 0
+                    ? data.lower_reach.slice(0, 8).map((d, i) => <ArtistRow key={d.name} name={d.name} meta={d.similarity ? `${Math.round(d.similarity * 100)}%` : null} i={i} />)
+                    : <p className="text-[var(--text-low)] text-sm">No lower-reach neighbors met the similarity threshold.</p>}
                 </PvPanel>
               </div>
 

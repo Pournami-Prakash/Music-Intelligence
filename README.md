@@ -43,6 +43,20 @@ cd frontend && npm install && npm run dev
 ```
 Requires a `.env` with `R2_*` keys (see `.env.example`).
 
+## Local validation
+
+Run the production-shaped checks with one command:
+
+```bash
+./deploy/validate_local.sh
+```
+
+The validator uses `.venv`, starts the API if necessary, waits until its R2
+artifacts report ready, then runs all Python tests, Python compilation, frontend
+lint, and the frontend production build. If credentials or artifacts are
+unavailable, it exits with one readiness error instead of cascading smoke-test
+connection failures.
+
 ## Serving coverage and fallbacks
 
 The serving layer keeps the canonical R2 dataset intact and uses bounded,
