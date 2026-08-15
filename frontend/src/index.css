@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@600;700;800&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,400..900;1,9..144,400..700&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -8,9 +8,16 @@
   :root {
     --atlas-surface: #131313;
     --atlas-text: #e5e2e1;
+    /* Editorial display face for all titles. Instrument Serif ships only
+       regular + italic, so faux-bold is disabled globally below. */
+    --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* Never synthesize bold/italic — display titles render at Instrument Serif's
+     true regular weight instead of a smeared faux-bold. */
+  body { font-synthesis: none; }
 
   body {
     min-height: 100svh;
@@ -374,7 +381,7 @@
     letter-spacing: -0.045em;
     line-height: 0.92;
     text-transform: uppercase;
-    font-family: 'Archivo Narrow', sans-serif;
+    font-family: var(--font-display);
   }
 
   .dossier-hero span {
@@ -550,7 +557,7 @@
     display: block;
     max-width: 100%;
     color: #f7f3ea;
-    font-family: 'Archivo Narrow', sans-serif;
+    font-family: var(--font-display);
     font-size: clamp(22px, 3vw, 34px);
     font-weight: 800;
     letter-spacing: -0.04em;
@@ -624,7 +631,7 @@
   .dossier-room-tile h2 {
     margin-top: 20px;
     color: #f7f3ea;
-    font-family: 'Archivo Narrow', sans-serif;
+    font-family: var(--font-display);
     font-size: 24px;
     font-weight: 800;
     letter-spacing: -0.04em;
@@ -712,7 +719,7 @@
     display: block;
     margin-top: 7px;
     color: #f7f3ea;
-    font-family: 'Archivo Narrow', sans-serif;
+    font-family: var(--font-display);
     font-size: 30px;
     font-weight: 800;
     line-height: 0.95;
@@ -836,7 +843,7 @@
     place-items: center;
     background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--rec) 82%, #000) 0 62%, #0a0a0a 64%);
     color: #060606;
-    font-family: 'Archivo Narrow', sans-serif;
+    font-family: var(--font-display);
     font-weight: 800;
     font-size: clamp(18px, 3vw, 28px);
     box-shadow: inset 0 0 0 2px rgba(0,0,0,0.4);
@@ -882,7 +889,7 @@
     display: block;
     margin-top: 4px;
     color: #f7f3ea;
-    font-family: 'Archivo Narrow', sans-serif;
+    font-family: var(--font-display);
     font-size: clamp(22px, 3vw, 30px);
     font-weight: 800;
     letter-spacing: -0.04em;
@@ -988,7 +995,7 @@
   }
   .atlas-orbit-core strong {
     color: #f7f3ea;
-    font-family: 'Archivo Narrow', sans-serif;
+    font-family: var(--font-display);
     font-size: clamp(12px, 2.4cqmin, 17px);
     font-weight: 800;
     line-height: 0.98;
@@ -1529,7 +1536,7 @@
     display: grid;
     place-items: center;
     color: currentColor;
-    font-family: 'Archivo Narrow', sans-serif;
+    font-family: var(--font-display);
     font-size: clamp(150px, 25vw, 340px);
     font-weight: 800;
     letter-spacing: -0.12em;
@@ -1599,7 +1606,7 @@
   [data-motif='atlas'] .atlas-shape-b { inset: 13%; border-style: dashed; }
   [data-motif='atlas'] .atlas-shape-c { inset: 29%; transform: rotate(45deg); border-radius: 0; }
   [data-motif='atlas'] .atlas-shape-d { inset: 43%; background: currentColor; }
-  [data-motif='lost'] .atlas-motif::before { content: '404'; position: absolute; inset: 0; color: currentColor; font: 800 clamp(120px, 24vw, 320px)/1 'Archivo Narrow', sans-serif; }
+  [data-motif='lost'] .atlas-motif::before { content: '404'; position: absolute; inset: 0; color: currentColor; font: 800 clamp(120px, 24vw, 320px)/1 var(--font-display); }
   [data-motif='lost'] .atlas-shape { display: none; }
 
   /* Replace the generic glass-card treatment with a compact instrument chassis. */
@@ -1650,7 +1657,7 @@
 
   .atlas-main .pv-hero h1 {
     max-width: 940px;
-    font-family: 'Archivo Narrow', sans-serif;
+    font-family: var(--font-display);
     font-size: clamp(50px, 7vw, 92px);
     line-height: .84;
     letter-spacing: -.055em;
@@ -1731,7 +1738,7 @@
   }
 
   .atlas-main .pv-card h3 {
-    font-family: 'Archivo Narrow', sans-serif;
+    font-family: var(--font-display);
     font-size: 30px;
     text-transform: uppercase;
   }
@@ -1744,7 +1751,7 @@
   }
 
   .atlas-main .pv-stat b {
-    font-family: 'Archivo Narrow', sans-serif;
+    font-family: var(--font-display);
     font-size: clamp(34px, 4vw, 54px);
   }
 
@@ -2076,7 +2083,7 @@
   .pv-home-copy h1,
   .pv-room-stage-copy h1 {
     color: var(--text-hi);
-    font-family: 'Archivo Narrow', sans-serif;
+    font-family: var(--font-display);
     font-size: clamp(60px, 7vw, 108px);
     font-weight: 800;
     letter-spacing: -.06em;
@@ -2084,7 +2091,43 @@
     text-transform: uppercase;
   }
 
-  .pv-home-copy h1 span { color: var(--accent); }
+  /* Only the flagged word carries the accent — the masked-line spans stay neutral. */
+  .pv-home-copy h1 span { color: inherit; }
+
+  /* Editorial serif hero title (home only). High-contrast Instrument Serif,
+     sentence case, with an italic accent word — the "expensive" look, not the
+     generic condensed-uppercase default. */
+  .pv-home-copy .pv-home-title {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-optical-sizing: auto;
+    font-size: clamp(56px, 7.4vw, 124px);
+    letter-spacing: -0.02em;
+    line-height: 1;
+    text-transform: none;
+  }
+  .pv-home-title .pv-accent {
+    color: var(--accent);
+    font-style: italic;
+    letter-spacing: 0;
+  }
+
+  /* Cinematic film-title reveal: each line rides up from behind its own mask. */
+  .pv-home-title { display: grid; }
+  .pv-reveal-line {
+    display: block;
+    overflow: hidden;
+    padding-bottom: 0.14em;
+  }
+  .pv-reveal-line > span {
+    display: block;
+    will-change: transform;
+  }
+  /* Default hidden state (SPA is JS-only, so JS always drives the reveal). */
+  .pv-reveal-line > span { transform: translateY(112%); }
+  @media (prefers-reduced-motion: reduce) {
+    .pv-reveal-line > span { transform: none; }
+  }
 
   .pv-home-deck,
   .pv-room-stage-copy > p:not(.pv-eyebrow) {
@@ -2156,9 +2199,15 @@
     transform: translateX(-115%);
   }
 
-  .pv-home[data-motion-ready='true'] [data-motion-intro],
-  .pv-home[data-motion-ready='true'] [data-motion-reveal] {
-    opacity: 0;
+  /* Default hidden states — flash-free because the SPA only renders with JS,
+     and JS always animates these in. Reduced-motion reveals them immediately. */
+  .pv-home [data-motion-intro],
+  .pv-home [data-motion-reveal] { opacity: 0; }
+  .pv-home .pv-home-lottie { opacity: 0; }
+  @media (prefers-reduced-motion: reduce) {
+    .pv-home [data-motion-intro],
+    .pv-home [data-motion-reveal],
+    .pv-home .pv-home-lottie { opacity: 1; transform: none; }
   }
 
   .pv-home-lottie .atlas-lottie,
@@ -2381,7 +2430,7 @@
   .pv-provenance-item b {
     display: block;
     color: var(--text-hi);
-    font-family: 'Archivo Narrow', sans-serif;
+    font-family: var(--font-display);
     font-size: clamp(27px, 3vw, 42px);
     letter-spacing: -.03em;
   }
@@ -2409,7 +2458,7 @@
   }
   .pv-section-intro h2 {
     color: var(--text-hi);
-    font-family: 'Archivo Narrow', sans-serif;
+    font-family: var(--font-display);
     font-size: clamp(42px, 5.5vw, 72px);
     font-weight: 800;
     letter-spacing: -.05em;
@@ -2473,7 +2522,7 @@
   .pv-room-entry h3 {
     margin-top: 6px;
     color: var(--text-hi);
-    font-family: 'Archivo Narrow', sans-serif;
+    font-family: var(--font-display);
     font-size: clamp(30px, 3.5vw, 48px);
     font-weight: 800;
     letter-spacing: -.04em;
@@ -2571,7 +2620,7 @@
   }
   .pv-feature-entry:hover { background: color-mix(in srgb, var(--accent) 6%, transparent); transform: translateX(8px); }
   .pv-feature-entry > span { color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 11px; }
-  .pv-feature-entry h3 { color: var(--text-hi); font-family: 'Archivo Narrow', sans-serif; font-size: clamp(28px, 3vw, 40px); font-weight: 800; letter-spacing: -.03em; text-transform: uppercase; }
+  .pv-feature-entry h3 { color: var(--text-hi); font-family: var(--font-display); font-size: clamp(28px, 3vw, 40px); font-weight: 800; letter-spacing: -.03em; text-transform: uppercase; }
   .pv-feature-entry p { margin-top: 5px; color: var(--text-low); font-size: 13px; }
 
   /* Lottie-led operational states: a scene, not another dashboard card. */
@@ -2637,9 +2686,10 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .pv-home[data-motion-ready='true'] [data-motion-intro],
-    .pv-home[data-motion-ready='true'] [data-motion-reveal] { opacity: 1; }
+    .pv-home [data-motion-intro],
+    .pv-home [data-motion-reveal] { opacity: 1; }
     .pv-signal-sweep { display: none; }
+    .pv-cinema-bar { display: none; }
     .pv-room-entry,
     .pv-room-entry::before,
     .pv-room-entry .pv-room-number,
@@ -2912,7 +2962,7 @@
     display: block;
     margin-top: 3px;
     color: var(--text-hi);
-    font-family: 'Archivo Narrow', sans-serif;
+    font-family: var(--font-display);
     font-size: 24px;
     line-height: .95;
     text-transform: uppercase;
@@ -3045,7 +3095,7 @@
     letter-spacing: .18em;
   }
   .scene-cut-copy strong {
-    font: 800 clamp(42px, 7vw, 100px)/.82 'Archivo Narrow', sans-serif;
+    font: 800 clamp(42px, 7vw, 100px)/.82 var(--font-display);
     letter-spacing: -.055em;
   }
 
@@ -3447,7 +3497,7 @@
     border-inline: 0;
     background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--route-accent) 8%, transparent), transparent);
   }
-  [data-atlas-scene='language'] .pv-cell strong { font-family: 'Archivo Narrow', sans-serif; text-transform: uppercase; }
+  [data-atlas-scene='language'] .pv-cell strong { font-family: var(--font-display); text-transform: uppercase; }
 
   /* 15 — Trend Explorer: rising phrase momentum. */
   [data-atlas-scene='trend'] .pv-panel {
@@ -3564,7 +3614,7 @@
     text-shadow: 0 0 34px color-mix(in srgb, var(--route-accent) 26%, transparent);
   }
   .atlas-main .pv-panel:has(.atlas-lottie)::first-line {
-    font-family: 'Archivo Narrow', sans-serif;
+    font-family: var(--font-display);
     font-size: clamp(72px, 10vw, 138px);
     line-height: .72;
     letter-spacing: -.04em;
@@ -3829,11 +3879,6 @@
     width: min(100%, 1180px);
     max-width: 1180px;
     margin-inline: auto;
-  }
-
-  .pv-home[data-motion-ready='true'] [data-motion-reveal] {
-    opacity: 1;
-    transform: none;
   }
 
   .pv-home .pv-room-entry.atlas-rise {
@@ -4152,4 +4197,115 @@
   .atlas-share-wrap { margin-inline-start: 0; width: 100%; }
   .atlas-share-result { width: 100%; min-height: 44px; }
   .atlas-evidence-contract dl { grid-template-columns: 1fr; }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Cinematic frame — Home only. Portaled to <body>; purely decorative and
+   click-through. Gives the landing a filmic depth: a drifting light wash, an
+   edge vignette, and letterbox bars that part on the first visit of a session.
+   ───────────────────────────────────────────────────────────────────────── */
+.pv-cinema {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  overflow: hidden;
+  pointer-events: none;
+}
+.pv-cinema-wash {
+  position: absolute;
+  left: 50%;
+  top: -26%;
+  width: 130vw;
+  height: 78vh;
+  transform: translateX(-50%);
+  background: radial-gradient(50% 50% at 50% 50%, rgba(83, 224, 118, 0.11), transparent 70%);
+  filter: blur(34px);
+  will-change: transform;
+}
+.pv-cinema-vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(128% 88% at 50% 40%, transparent 55%, rgba(2, 4, 3, 0.55) 100%),
+    linear-gradient(180deg, rgba(2, 4, 3, 0.42), transparent 13%, transparent 87%, rgba(2, 4, 3, 0.5));
+}
+.pv-cinema-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 52vh;
+  z-index: 2;
+  background: #050605;
+  will-change: transform;
+}
+.pv-cinema-bar.is-top {
+  top: 0;
+  transform-origin: top;
+  box-shadow: 0 1px 0 rgba(83, 224, 118, 0.4);
+}
+.pv-cinema-bar.is-bottom {
+  bottom: 0;
+  transform-origin: bottom;
+  box-shadow: 0 -1px 0 rgba(83, 224, 118, 0.4);
+}
+
+/* Serif retune: uppercase display titles were tracked negative for the old
+   condensed sans, which crowds Instrument Serif. Open tracking + line-height so
+   the editorial uppercase reads cleanly. (Title-case headings already look right.) */
+.dossier-hero h1,
+.atlas-main .pv-hero h1,
+.pv-section-intro h2,
+.pv-room-stage-copy h1,
+.pv-room-entry h3,
+.pv-feature-entry h3 {
+  letter-spacing: 0.005em;
+  line-height: 1;
+}
+/* The giant faint watermark word behind feature pages — relax its heavy negative
+   tracking so serif glyphs don't overlap. */
+.atlas-main .atlas-motif { letter-spacing: -0.01em; }
+
+/* Liquid-chrome ribbon: a canvas backdrop that pools in the hero's lower third
+   and melts into the black at both edges. Sits behind hero content (z-index:-1)
+   so text and the instrument stay crisp on top. */
+/* Own stacking context so the z-index:-1 ribbon paints above .pv's background
+   but below the hero text and instrument. */
+.pv-home { isolation: isolate; }
+.pv-ribbon-stage {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: min(92vh, 940px);
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(180deg, transparent 4%, #000 34%, #000 84%, transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 4%, #000 34%, #000 84%, transparent 100%);
+}
+.pv-liquid-ribbon,
+.pv-hero-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.pv-hero-video { object-fit: cover; object-position: 54% 44%; }
+/* Scrim: darken the left (headline) and bottom (deck/search) so text stays crisp
+   while the glowing right side of the galaxy shows through. */
+.pv-hero-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(8, 10, 9, 0.92) 0%, rgba(8, 10, 9, 0.6) 30%, transparent 62%),
+    linear-gradient(0deg, rgba(8, 10, 9, 0.72) 0%, transparent 34%);
+}
+
+/* Scroll parallax rides on the instrument itself, leaving the parent's
+   intro transform (owned by motion) untouched. */
+.pv-home-lottie .corpus-signal {
+  transform: translateY(var(--parallax, 0px));
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pv-home-lottie .corpus-signal { transform: none; }
+  .pv-cinema-wash { transform: translateX(-50%) !important; }
 }

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowUpRight, Search } from 'lucide-react'
-import { animate, stagger } from 'motion'
+import { animate, inView, scroll, stagger } from 'motion'
 import { ROOM_ORDER, ROOMS } from '../data/rooms'
 import { CountUp } from '../components/Observatory'
 import CorpusSignal from '../components/CorpusSignal'
@@ -35,9 +36,18 @@ const SEARCH_STARTERS = [
   { label: 'Drake → Radiohead', to: '/six-degrees', state: { from: 'Drake', to: 'Radiohead' } },
 ]
 
+// Hero headline, split into cinematically masked lines.
+const TITLE_LINES = [
+  [{ t: 'Hear what' }],
+  [{ t: 'a million' }],
+  [{ t: 'playlists', accent: true }, { t: ' reveal.' }],
+]
+
 export default function Home() {
   const [stats, setStats] = useState(DEFAULT_STATS)
   const [query, setQuery] = useState('')
+  const [reduceMotion] = useState(() => typeof window !== 'undefined'
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
   const pageRef = useRef(null)
   const navigate = useNavigate()
 
@@ -47,33 +57,116 @@ export default function Home() {
 
   useEffect(() => {
     const page = pageRef.current
+    if (!page) return undefined
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (!page || reduceMotion) return undefined
+    if (reduceMotion) {
+      page.dataset.motionReady = 'reduced'
+      return undefined
+    }
 
     page.dataset.motionReady = 'true'
     const controls = []
-    const intro = page.querySelectorAll('[data-motion-intro]')
-    const visual = page.querySelector('.pv-home-lottie')
-    const sweep = page.querySelector('.pv-signal-sweep')
+    const cleanups = []
+    const push = (c) => { if (c) controls.push(c) }
 
-    controls.push(animate(
+    const q = (sel) => page.querySelector(sel)
+    const qa = (sel) => Array.from(page.querySelectorAll(sel))
+
+    // 0 ─ Cinematic curtain: letterbox bars part on first visit of the session.
+    const firstOpen = !sessionStorage.getItem('atlas-opened')
+    const bars = Array.from(document.querySelectorAll('.pv-cinema-bar'))
+    if (firstOpen && bars.length) {
+      sessionStorage.setItem('atlas-opened', '1')
+      push(animate(
+        bars,
+        { transform: ['scaleY(1)', 'scaleY(0)'] },
+        { duration: 0.92, delay: 0.05, ease: [0.85, 0, 0.15, 1] },
+      ))
+    } else {
+      bars.forEach(b => { b.style.transform = 'scaleY(0)' })
+    }
+    const introLag = firstOpen ? 0.5 : 0.05
+
+    // 1 ─ Hero title: each line rises out from behind its mask (film-title reveal).
+    const lines = qa('.pv-reveal-line > span')
+    push(animate(
+      lines,
+      { transform: ['translateY(112%)', 'translateY(0%)'] },
+      { duration: 0.92, delay: stagger(0.085, { startDelay: introLag }), ease: [0.16, 1, 0.3, 1] },
+    ))
+
+    // 2 ─ Supporting copy fades up in sequence.
+    const intro = qa('[data-motion-intro]')
+    push(animate(
       intro,
-      { opacity: [0, 1], transform: ['translateY(22px)', 'translateY(0px)'] },
-      { duration: 0.72, delay: stagger(0.075), ease: [0.22, 1, 0.36, 1] },
+      { opacity: [0, 1], transform: ['translateY(20px)', 'translateY(0px)'] },
+      { duration: 0.8, delay: stagger(0.08, { startDelay: introLag + 0.28 }), ease: [0.22, 1, 0.36, 1] },
     ))
-    controls.push(animate(
+
+    // 3 ─ The signal instrument settles with a slow push-in (Ken Burns).
+    const visual = q('.pv-home-lottie')
+    push(animate(
       visual,
-      { opacity: [0, 1], transform: ['translateX(24px) scale(0.96)', 'translateX(0px) scale(1)'] },
-      { duration: 0.9, delay: 0.12, ease: [0.16, 1, 0.3, 1] },
+      { opacity: [0, 1], transform: ['scale(1.08) translateX(26px)', 'scale(1) translateX(0px)'] },
+      { duration: 1.25, delay: introLag + 0.15, ease: [0.16, 1, 0.3, 1] },
     ))
-    controls.push(animate(
+
+    // 4 ─ Calibration sweep loops across the instrument.
+    const sweep = q('.pv-signal-sweep')
+    push(animate(
       sweep,
       { transform: ['translateX(-115%)', 'translateX(115%)'] },
-      { duration: 3.4, delay: 0.8, repeat: Infinity, repeatDelay: 2.8, ease: 'linear' },
+      { duration: 3.4, delay: introLag + 1.1, repeat: Infinity, repeatDelay: 2.8, ease: 'linear' },
     ))
+
+    // 5 ─ Scroll-driven reveals: sections resolve as they enter the frame.
+    const revealables = qa('[data-motion-reveal]')
+    revealables.forEach((el) => {
+      el.style.opacity = '0'
+      el.style.transform = 'translateY(34px)'
+      const stop = inView(el, () => {
+        const rows = el.querySelectorAll('.pv-room-entry')
+        if (rows.length) {
+          animate(el, { opacity: [0, 1] }, { duration: 0.4 })
+          el.style.transform = 'none'
+          animate(
+            rows,
+            { opacity: [0, 1], transform: ['translateY(40px)', 'translateY(0px)'] },
+            { duration: 0.7, delay: stagger(0.07), ease: [0.16, 1, 0.3, 1] },
+          )
+        } else {
+          animate(
+            el,
+            { opacity: [0, 1], transform: ['translateY(34px)', 'translateY(0px)'] },
+            { duration: 0.72, ease: [0.16, 1, 0.3, 1] },
+          )
+        }
+        return () => {}
+      }, { amount: 0.25, margin: '0px 0px -12% 0px' })
+      cleanups.push(stop)
+    })
+
+    // 6 ─ Parallax: the instrument and ambient wash drift against the scroll.
+    if (visual) {
+      cleanups.push(scroll(
+        (progress) => {
+          visual.style.setProperty('--parallax', `${(progress - 0.5) * -66}px`)
+        },
+        { target: page, offset: ['start start', 'end start'] },
+      ))
+    }
+    const ambient = document.querySelector('.pv-cinema-wash')
+    if (ambient) {
+      cleanups.push(scroll(
+        (progress) => {
+          ambient.style.transform = `translate3d(0, ${progress * 120}px, 0) scale(${1 + progress * 0.12})`
+        },
+      ))
+    }
 
     return () => {
       controls.forEach(control => control?.stop?.())
+      cleanups.forEach(stop => stop?.())
     }
   }, [])
 
@@ -88,6 +181,36 @@ export default function Home() {
 
   return (
     <div className="pv pv-home" ref={pageRef}>
+      {/* Cinematic framing — portaled to <body> so fixed positioning tracks the
+          viewport (the route container keeps an inline transform). Decorative only. */}
+      {createPortal(
+        <div className="pv-cinema" aria-hidden="true">
+          <div className="pv-cinema-wash" />
+          <div className="pv-cinema-vignette" />
+          <div className="pv-cinema-bar is-top" />
+          <div className="pv-cinema-bar is-bottom" />
+        </div>,
+        document.body,
+      )}
+
+      {/* Cinematic hero backdrop — a living galaxy of playlists (z-index:-1).
+          Autoplays muted/looping; reduced-motion users get the poster still.
+          A left/bottom scrim keeps the headline and search legible. */}
+      <div className="pv-ribbon-stage" aria-hidden="true">
+        <video
+          className="pv-hero-video"
+          poster="/media/hero-network-poster.jpg"
+          autoPlay={!reduceMotion}
+          muted
+          loop
+          playsInline
+          preload="metadata"
+        >
+          <source src="/media/hero-network.mp4" type="video/mp4" />
+        </video>
+        <div className="pv-hero-scrim" />
+      </div>
+
       <div className="pv-top">
         <div className="pv-brand"><b>Music Intelligence Atlas</b> · Playlist culture</div>
         <div className="pv-pill">Active archive</div>
@@ -96,7 +219,19 @@ export default function Home() {
       <section className="pv-home-stage">
         <div className="pv-home-copy">
           <p className="pv-eyebrow" data-motion-intro>Playlist intelligence / 01</p>
-          <h1 data-motion-intro>Hear what<br />a million<br /><span>playlists</span> reveal.</h1>
+          <h1 className="pv-home-title">
+            {TITLE_LINES.map((line, i) => (
+              <span className="pv-reveal-line" key={i}>
+                <span>
+                  {line.map((part, j) => (
+                    part.accent
+                      ? <em className="pv-accent" key={j}>{part.t}</em>
+                      : <span key={j}>{part.t}</span>
+                  ))}
+                </span>
+              </span>
+            ))}
+          </h1>
           <p className="pv-home-deck" data-motion-intro>A cultural atlas built from the way people group music—not what a genre chart says, but where songs and artists actually live.</p>
 
           <form className="pv-search" onSubmit={openDossier} data-motion-intro>
@@ -139,7 +274,7 @@ export default function Home() {
             [<CountUp key="c" value={stats.playlist_track_rows / 1_000_000} suffix="M" />, 'co-occurrences'],
             [<CountUp key="e" value={stats.editorial_playlists} />, 'editorial lists'],
           ].map(([value, label], i) => (
-            <div key={label} className="pv-provenance-item atlas-rise" style={{ '--i': i }}>
+            <div key={label} className="pv-provenance-item" style={{ '--i': i }}>
               <b>{value}</b>
               <small>{label}</small>
             </div>
@@ -154,7 +289,7 @@ export default function Home() {
           {ROOM_ORDER.map((id, index) => {
             const room = ROOMS[id]
             return (
-              <Link key={id} to={`/${id}`} className="pv-room-entry atlas-rise" style={{ '--rc': room.accent, '--i': index }}>
+              <Link key={id} to={`/${id}`} className="pv-room-entry" style={{ '--rc': room.accent, '--i': index }}>
                 <span className="pv-room-number">0{index + 1}</span>
                 <ArrowUpRight size={16} className="pv-card-arrow" />
                 <div>
