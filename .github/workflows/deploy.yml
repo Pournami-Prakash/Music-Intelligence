@@ -3,21 +3,44 @@ name: Deploy to Oracle Cloud
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      # The Oracle host only exists once an Always Free A1 instance has actually
+      # been claimed (see deploy/oci_launch_loop.sh — capacity is scarce). Until
+      # the secrets are set, skip cleanly instead of failing every single push
+      # with "Error: missing server host".
+      - name: Check deploy target is configured
+        id: target
+        env:
+          ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
+          ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
+        run: |
+          if [ -n "$ORACLE_HOST" ] && [ -n "$ORACLE_SSH_KEY" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::ORACLE_HOST / ORACLE_SSH_KEY are not set — no deploy target yet, skipping."
+          fi
+
       - name: Deploy via SSH
+        if: steps.target.outputs.configured == 'true'
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.ORACLE_HOST }}
           username: ubuntu
           key: ${{ secrets.ORACLE_SSH_KEY }}
+          script_stop: true
           script: |
             cd ~/music-intelligence-atlas
             git pull origin main
-            .venv/bin/pip install -r requirements.txt --quiet
+            # Serving host: slim API deps only, matching deploy/setup.sh.
+            # requirements.txt is the offline compute stack (torch/transformers)
+            # and must never be installed here.
+            .venv/bin/pip install -r requirements-api.txt --quiet
             sudo systemctl restart music-atlas
             sleep 3
             curl -sf http://localhost:8000/health | python3 -c "import sys,json; b=json.load(sys.stdin); sys.exit(0 if b['status']=='ok' else 1)"
