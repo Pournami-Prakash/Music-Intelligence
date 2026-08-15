@@ -69,10 +69,3 @@ in memory at all: DuckDB queries Parquet artifacts directly out of Cloudflare R2
 and streams the results. Vector similarity lives in Upstash. One feature is
 LLM-assisted through Groq, and it falls back to deterministic keyword logic the
 moment the model is unavailable.
-
-That architecture wasn't an aesthetic preference. The whole thing was built to
-run on hosts with 512 MB of RAM, which meant serialized queries, bounded
-in-flight requests, an LRU result cache, jemalloc to stop the heap fragmenting,
-and shedding load with a `503` rather than growing a queue nobody's going to
-wait on. Most of the engineering in this repo is that fight, and the load-test
-notes recording where it was won and lost are still in `deploy/`.
