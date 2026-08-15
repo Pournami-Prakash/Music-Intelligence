@@ -1,109 +1,78 @@
 # Music Intelligence Atlas
 
-**A cultural map of how a million playlists actually use music.**
+**[music-intelligence-blue.vercel.app →](https://music-intelligence-blue.vercel.app)**
 
-🔗 **[Explore the Atlas →](https://music-intelligence-blue.vercel.app)**
+Spotify will tell you a song is 122 BPM, in A minor, with high danceability. It
+won't tell you that people put it on gym playlists *and* heartbreak playlists,
+which is the more interesting fact about it.
 
----
+That gap is what this project is about. A playlist is someone deciding a song
+belongs somewhere — next to these other songs, under this name, for this
+occasion. Do that a million times and you get a map of how music is actually
+used, rather than how it's catalogued.
 
-Streaming services describe songs by genre and audio features. That misses the
-part that carries the meaning: *where people put a song.* A track filed under
-"gym" and "heartbreak" by the same listeners is telling you something no BPM
-value can.
+So I took a million public playlists and read them as cultural evidence.
 
-The Atlas reads one million public playlists as cultural evidence. It maps where
-artists travel, which contexts a song straddles, what vocabulary people reach
-for when naming a mood, and which songs the editors quietly removed. Every
-number traces back to playlist co-occurrence in a fixed corpus — not to
-audio analysis, not to a recommender, and not to a model's opinion.
+## What falls out of it
 
-## The corpus
+Some of it confirms what you'd guess. Drake sits at rank one, appearing in
+203,345 playlists — one in every five. The most common word in a playlist title
+isn't a mood or a genre you'd expect; it's *country*, at 2.3% of all titles,
+just ahead of *summer* and *chill*.
 
-| | |
-|---|---:|
-| Playlists | 1,000,000 |
-| Distinct tracks | 3,620,989 |
-| Playlist–track rows | 66,346,428 |
-| Editorial playlists archived | 9,053 |
-| Artists with full profiles | 10,000 |
-| Searchable track index | 2,262,292 |
-| Track embeddings (128-dim) | 599,341 |
-| ISRC coverage | 758,503 (20.9%) |
-| MusicBrainz ID coverage | 693,171 (19.1%) |
+Some of it is stranger. Drake and Radiohead — two artists with roughly nothing
+in common — are a single hop apart, sharing 2,167 playlists between them.
+Olivia Rodrigo's "drivers license" turns up in eight times as many contrary-mood
+playlists as the mood it supposedly belongs to. Songs refuse to stay in their
+lane, and the playlist record is where you can see it happening.
 
-Built on the Spotify Million Playlist Dataset as the spine, enriched with
-MusicBrainz, ListenBrainz, Last.fm, and Deezer, plus an archive of editorial
-playlist history. Corpus snapshot: **11 July 2026**.
+The Atlas has twenty-six ways to poke at this, grouped into six rooms. The
+**Deep Map** handles the big-picture work: mood regions, genre weather, artist
+ancestry, forensics against the editorial archive. The **Artist Observatory**
+reads artists as signals — reach, habitat, mainstream gravity, head-to-head
+overlap. **Song World** takes a single track and shows you its public life.
+The **Vibe Dictionary** is the language layer, where playlist titles become a
+vocabulary you can search. **Taste Tunnel** is the graph — paths, orbits,
+collisions, transitions, sonic twins. And the **Drop Archive** keeps the
+receipts on songs that rose, vanished, or got quietly cut by an editor.
 
-## What you can do
+## The part I'd want you to look at
 
-Twenty-six views, grouped into six rooms.
+It's easy to render a chart. It's harder to be honest about what the chart means,
+and that's where most data projects quietly cheat.
 
-**🗺️ Deep Map** — the research wing. Mood regions across the title corpus, genre
-weather from an embedding projection, artist ancestry by shared-tag similarity,
-playlist forensics against the editorial archive, and group blending.
+Every view here ships an *evidence contract*: the exact metric, its source, its
+coverage, and — the part that usually goes missing — what it does **not** mean.
+Artist ancestry says outright that it infers nothing about influence or artistic
+descent. Ubiquity says playlist reach is not listener count. The basicness index
+says it's a measure of reach, not a judgment of taste.
 
-**🔭 Artist Observatory** — read artists as cultural signals. Playlist reach and
-rank, habitat (which contexts an artist lives in), a basicness percentile,
-main-character scoring, and head-to-head overlap.
+Coverage limits get disclosed instead of papered over. Similarity search runs
+over the most-playlisted tracks, so an obscure query returns an honest empty
+rather than a confident fabrication. Views served from precomputed snapshots
+say so. Nothing here measures listening — only placement — and every page
+that could be misread as popularity says as much on its face.
 
-**🌍 Song World** — inspect one song's public life. Its passport of playlist
-appearances, and the contexts it contradicts — tracks filed under both "happy"
-and "heartbreak" by different people.
+I care more about that discipline than about any individual feature.
 
-**📖 Vibe Dictionary** — the language layer. The vocabulary of a million playlist
-titles, word trend exploration, a name generator trained on real naming habits,
-and a title-genericness roast.
+## Under it
 
-**🔗 Taste Tunnel** — the graph. Bounded co-occurrence paths between any two
-artists, orbital compasses, collision analysis, transition routing between two
-tracks, and embedding-based doppelgängers.
+A million playlists, 3.6 million distinct tracks, and 66.3 million
+playlist-track rows, with the Spotify Million Playlist Dataset as the spine and
+MusicBrainz, ListenBrainz, Last.fm, and Deezer filling in identity and
+enrichment. Roughly a fifth of tracks carry a resolved ISRC or MusicBrainz ID.
+The corpus is a fixed snapshot, frozen 11 July 2026 — it's a map, not a ticker.
 
-**🗄️ Drop Archive** — songs that rose, vanished, or got cut. Forgotten hits,
-era time capsules, and the editorial graveyard of removed tracks.
+The frontend is React and Vite, with `motion` and `d3` doing the moving parts.
+The backend is FastAPI, but the interesting choice is that it holds no dataset
+in memory at all: DuckDB queries Parquet artifacts directly out of Cloudflare R2
+and streams the results. Vector similarity lives in Upstash. One feature is
+LLM-assisted through Groq, and it falls back to deterministic keyword logic the
+moment the model is unavailable.
 
-## Every claim shows its work
-
-Each view ships an **evidence contract** stating four things in plain language:
-the exact metric, its source, what it covers, and — critically — what it does
-*not* mean. Ancestry says outright that it does not infer influence or artistic
-descent. Ubiquity says playlist reach is not listener count. Basicness says it's
-a reach index, not a taste judgment.
-
-Coverage limits are disclosed rather than hidden. Similarity search runs over the
-most-playlisted tracks, so the long tail returns honest empties instead of
-plausible fabrications. Views served from precomputed snapshots say so.
-
-This is the part of the project I'd point at first. Anything can render a chart;
-the harder discipline is refusing to overclaim what a chart means.
-
-## How it's built
-
-A **React + Vite** frontend with `motion` and `d3`, deployed on Vercel.
-
-A **FastAPI** backend that queries **DuckDB** directly over Parquet artifacts in
-**Cloudflare R2**, streaming rather than loading them — the serving layer holds
-no dataset in memory. Vector similarity runs on **Upstash Vector**; a single
-LLM-assisted feature uses **Groq**, with a deterministic keyword fallback when
-the model is unavailable.
-
-Everything expensive is precomputed offline: a track2vec embedding space, a UMAP
-projection clustered into genre regions, artist co-occurrence graphs, habitat
-scores, and per-era snapshots. The API only ever reads.
-
-The serving layer was tuned hard for small hosts — serialized query execution,
-bounded in-flight requests, an LRU result cache, jemalloc to stop heap
-fragmentation, and graceful `503 + Retry-After` load-shedding instead of an
-unbounded queue.
-
-## Known limits
-
-- Playlist co-occurrence measures **placement, not listening**. Reach is not popularity.
-- Mood and context categories are **keyword-defined** from playlist titles. No audio, lyrics, or sentiment analysis is involved.
-- Rich artist detail covers the top 10,000 artists; exact rank and reach cover the full table.
-- Similarity features index the most-playlisted tracks, so obscure queries return empty rather than guessing.
-- The corpus is a **fixed snapshot**, not a live feed. It does not track current charts.
-
----
-
-*Data-pipeline reference lives in `PIPELINE.md`; operational notes are under `docs/` and `deploy/`.*
+That architecture wasn't an aesthetic preference. The whole thing was built to
+run on hosts with 512 MB of RAM, which meant serialized queries, bounded
+in-flight requests, an LRU result cache, jemalloc to stop the heap fragmenting,
+and shedding load with a `503` rather than growing a queue nobody's going to
+wait on. Most of the engineering in this repo is that fight, and the load-test
+notes recording where it was won and lost are still in `deploy/`.
