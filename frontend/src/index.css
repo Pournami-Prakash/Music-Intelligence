@@ -1793,7 +1793,7 @@
       linear-gradient(145deg, #0a0e0b, #070907 72%);
   }
   .atlas-main[data-atlas-family='cartography'] .pv-hero {
-    max-width: min(720px, 64%) !important;
+    max-width: min(1120px, 92%) !important;
     margin-left: 0;
     text-align: left;
   }
@@ -1810,7 +1810,7 @@
 
   /* Observatory: right-aligned readout, as if data is arriving from orbit. */
   .atlas-main[data-atlas-family='observatory'] .pv-hero {
-    max-width: min(760px, 68%) !important;
+    max-width: min(1120px, 92%) !important;
     margin-right: 0;
     text-align: right;
   }
@@ -1826,7 +1826,7 @@
 
   /* Song World: passport/sleeve proportions and ruled-paper texture. */
   .atlas-main[data-atlas-family='song'] .pv-hero {
-    max-width: min(820px, 76%) !important;
+    max-width: min(1120px, 92%) !important;
     margin-left: 4%;
     text-align: left;
     transform: rotate(-1deg);
@@ -1843,7 +1843,7 @@
 
   /* Vibe Dictionary: editorial type is the artifact; containers recede. */
   .atlas-main[data-atlas-family='lexicon'] .pv-hero {
-    max-width: min(920px, 82%) !important;
+    max-width: min(1120px, 92%) !important;
     margin-left: 0;
     text-align: left;
   }
@@ -1861,7 +1861,7 @@
 
   /* Taste Tunnel: diagonal momentum and clipped graph surfaces. */
   .atlas-main[data-atlas-family='graph'] .pv-hero {
-    max-width: min(860px, 74%) !important;
+    max-width: min(1120px, 92%) !important;
     margin-left: 7%;
     text-align: left;
   }
@@ -1882,7 +1882,7 @@
       linear-gradient(90deg, color-mix(in srgb, var(--route-accent) 4%, #090a09), #070807 76%);
   }
   .atlas-main[data-atlas-family='archive'] .pv-hero {
-    max-width: min(680px, 62%) !important;
+    max-width: min(1120px, 92%) !important;
     min-height: 190px;
     margin-left: 0;
     text-align: left;
@@ -3789,16 +3789,19 @@
     background: color-mix(in srgb, var(--route-accent) 5%, #070907);
   }
 
+  /* Heroes are centred on every feature page, and wide enough that the longest
+     description (~145 chars) stays on one line instead of wrapping. This
+     overrides the per-family left/right alignment set earlier in this file. */
   .atlas-main:not([data-atlas-scene='atlas']) .pv-hero {
-    max-width: 760px;
+    max-width: min(100%, 1120px);
     min-height: clamp(126px, 15vw, 180px);
-    margin: 0 0 clamp(24px, 3vw, 40px);
-    text-align: left;
+    margin: 0 auto clamp(24px, 3vw, 40px);
+    text-align: center;
   }
 
   .atlas-main:not([data-atlas-scene='atlas']) .pv-hero :is(h1, p) {
-    margin-left: 0;
-    text-align: left;
+    margin-inline: auto;
+    text-align: center;
   }
 
   .atlas-main:not([data-atlas-scene='atlas']) .pv-hero h1,
@@ -3824,11 +3827,15 @@
   }
 
   .atlas-main:not([data-atlas-scene='atlas']) .pv-hero p {
-    max-width: 660px;
+    /* Wide enough for the longest description to stay on a single line. Where
+       the viewport is too narrow for that, balance splits it into even lines
+       rather than leaving one long line and one orphaned word. */
+    max-width: min(100%, 1080px);
     margin-top: 16px;
     color: rgba(224, 229, 223, .64);
     font-size: 15px;
     line-height: 1.6;
+    text-wrap: balance;
   }
 
   .atlas-main:not([data-atlas-scene='atlas']) :is(.pv-panel, .pv-stat, .pv-cell, .pv-search-route) {
