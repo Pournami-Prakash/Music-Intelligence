@@ -47,7 +47,7 @@ export default function PlaylistForensics() {
     <PvPage>
       <PvTop sub="Deep Map" pill="Reference comparison" />
       <PvHero eyebrow="Editorial reference" title="Editorial Overlap">
-        Paste a public Spotify playlist link. The atlas imports its tracks and measures how much of the selection appears in Spotify editorial playlists.
+        Paste a public Spotify playlist. The atlas imports its tracks and measures the editorial overlap.
       </PvHero>
 
       <div className="max-w-6xl space-y-4">

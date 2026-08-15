@@ -58,7 +58,7 @@ export default function PlaylistLanguage() {
     <PvPage>
       <PvTop sub="Vibe Dictionary" pill="Playlist profile" />
       <PvHero eyebrow="Playlist evidence" title={result?.playlist?.name || 'Playlist Language'}>
-        Paste a public Spotify playlist to inspect its title vocabulary, artist concentration, and track makeup against the million-playlist corpus.
+        Paste a public Spotify playlist to inspect its title vocabulary, artist concentration, and track makeup.
       </PvHero>
 
       <div className="max-w-6xl space-y-4">
