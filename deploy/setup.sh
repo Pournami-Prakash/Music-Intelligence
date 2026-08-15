@@ -11,7 +11,7 @@
 # Run:  bash deploy/setup.sh
 set -euo pipefail
 
-REPO_URL="${REPO_URL:-https://github.com/Pournami-Prakash/music-intelligence-atlas.git}"
+REPO_URL="${REPO_URL:-https://github.com/Pournami-Prakash/Music-Intelligence.git}"
 DOMAIN="${DOMAIN:-api.pournamiprakash.dev}"
 APP_USER="$(whoami)"
 APP_DIR="$HOME/music-intelligence-atlas"

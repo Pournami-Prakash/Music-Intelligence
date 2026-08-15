@@ -1,7 +1,19 @@
 # Hugging Face Space — backend deployment
 
-Zero-dollar deployment target for the stateless API. Free **CPU Basic** Space
-(2 vCPU, 16 GB RAM, 50 GB ephemeral disk) — comfortably more than the app needs.
+Deployment target for the stateless API. **CPU Basic** Space (2 vCPU, 16 GB RAM,
+50 GB ephemeral disk) — comfortably more than the app needs.
+
+> **Requires a paid plan (verified 2026-08-15).** Hugging Face now gates Spaces
+> that run on compute: *"Static Spaces are free for everyone. Gradio and Docker
+> Spaces run on compute and require a paid plan to create: PRO for personal
+> accounts, Team or Enterprise for organizations."* This is a **Docker** Space,
+> so a personal account needs PRO (~$9/month). The CPU Basic hardware itself is
+> still $0/hour — it's Space *creation* that's gated. The ZeroGPU free
+> allowance is Gradio-only and does not cover this backend.
+>
+> Free alternative: Oracle Cloud Always Free (2 OCPU / 12 GB since Oracle halved
+> the A1 allowance on 2026-06-15) via `deploy/oci_launch_loop.sh` and
+> `deploy/setup.sh`, subject to A1 host capacity in your home region.
 
 ```text
 Vercel frontend ──▶ Hugging Face Docker Space ──▶ Cloudflare R2 (parquets)

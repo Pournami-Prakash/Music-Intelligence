@@ -3,9 +3,12 @@ import LottiePlayer from '../components/LottiePlayer'
 import { PvPage, PvTop, PvHero, PvPanel } from '../components/Premium'
 import { errorMessage } from '../lib/api'
 
-const MOODS = ['sad', 'happy', 'gym', 'party', 'study', 'sleep', 'chill']
+// Activity/positive contexts only. The emotional contexts (sad, angry,
+// heartbreak, anxious, lonely) are owned by /mood-contradiction, which reads the
+// same snapshot — keeping the two sets disjoint stops the pages overlapping.
+const MOODS = ['happy', 'gym', 'party', 'study', 'sleep', 'chill']
 const MOOD_COLORS = {
-  sad: '#5AC8FA', happy: '#F5C451', gym: '#3DDC97',
+  happy: '#F5C451', gym: '#3DDC97',
   party: '#FB923C', study: '#B08CF8', sleep: '#94A3B8', chill: '#22D3EE',
 }
 
@@ -24,7 +27,7 @@ function Bar({ label, value, color }) {
 }
 
 export default function GuiltyPleasureMap() {
-  const [mood, setMood] = useState('sad')
+  const [mood, setMood] = useState('happy')
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)

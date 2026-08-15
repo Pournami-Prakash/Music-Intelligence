@@ -12,6 +12,7 @@ export default function PlaylistLanguage() {
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [corpus, setCorpus] = useState(null)
 
   const analyze = async (targetUrl = url) => {
     if (!targetUrl.trim()) return
@@ -39,6 +40,18 @@ export default function PlaylistLanguage() {
       setUrl(sharedPlaylist)
       analyze(sharedPlaylist)
     }
+  }, [])
+
+  // Corpus-wide title vocabulary (frontend/public/data/playlist-language.json),
+  // the same snapshot /api/playlist-language serves. It fills the pre-input
+  // state so the room's "vocabulary of 1M playlist names" promise is on-page.
+  useEffect(() => {
+    let cancelled = false
+    fetch('/data/playlist-language.json')
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (!cancelled && d?.words?.length) setCorpus(d) })
+      .catch(() => {})
+    return () => { cancelled = true }
   }, [])
 
   return (
@@ -77,10 +90,37 @@ export default function PlaylistLanguage() {
         )}
 
         {!result && !loading && !error && (
-          <div className="pv-panel py-16 text-center">
-            <p className="text-[var(--text-hi)] font-semibold">Start with a playlist, not sample data.</p>
-            <p className="mt-2 text-sm text-[var(--text-mid)]">Public Spotify playlists work without signing in.</p>
-          </div>
+          <>
+            <div className="pv-panel py-10 text-center">
+              <p className="text-[var(--text-hi)] font-semibold">Start with a playlist, not sample data.</p>
+              <p className="mt-2 text-sm text-[var(--text-mid)]">Public Spotify playlists work without signing in.</p>
+            </div>
+
+            {corpus && (
+              <PvPanel label="Corpus vocabulary" className="atlas-rise" style={{ '--i': 0 }}>
+                <p className="mb-4 text-sm text-[var(--text-mid)]">
+                  The {corpus.words.length} most common words across {corpus.total_playlists.toLocaleString()} playlist
+                  titles. Each percentage is the share of titles containing that word.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {corpus.words.map(w => (
+                    <span
+                      key={w.word}
+                      className="inline-flex items-baseline gap-2 rounded-full border px-3 py-1.5 text-sm"
+                      style={{
+                        borderColor: CAT_COLORS[w.cat] || 'var(--hairline)',
+                        color: CAT_COLORS[w.cat] || 'var(--text-mid)',
+                        background: 'rgba(255,255,255,0.03)',
+                      }}
+                    >
+                      {w.word}
+                      <span className="font-mono text-[11px] text-[var(--text-low)]">{w.pct}%</span>
+                    </span>
+                  ))}
+                </div>
+              </PvPanel>
+            )}
+          </>
         )}
 
         {result && !loading && !error && (

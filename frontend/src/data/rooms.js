@@ -55,7 +55,7 @@ export const ROOMS = {
     primary: ['Open the corpus', '/playlist-language', {}],
     stats: ['1M titles', 'word frequency', 'naming rituals'],
     features: [
-      ['Language', '/playlist-language', 'The vocabulary of 1M playlist names.', {}, 'Type'],
+      ['Language', '/playlist-language', 'The vocabulary of 1M playlist names — and how yours compares.', {}, 'Type'],
       ['Trend Words', '/trend-explorer', 'Search any word and read its variants and edges.', { term: 'vibes' }, 'Search'],
       ['Name Gen', '/name-generator', 'Generate names from real playlist language.', {}, 'Wand2'],
       ['Roast', '/roast', 'See how generic a playlist title really is.', { title: 'vibes' }, 'Flame'],

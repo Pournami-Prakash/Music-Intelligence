@@ -2,6 +2,17 @@
 # Retry loop to claim an A1 Free Tier instance.
 # Rotates across all 3 Chicago ADs. Stops on first success.
 #
+# Shape is 2 OCPU / 12 GB: Oracle halved the Always Free A1 allowance from
+# 4 OCPU / 24 GB on 2026-06-15 without announcing it. Asking for the old 4/24
+# returns LimitExceeded, which the retry branch below treats as a capacity miss
+# — so an over-quota request loops forever and reads like "region is full".
+# Always Free instances must be launched in the tenancy's HOME region.
+#
+# To check capacity without attempting a launch (read-only, much cheaper):
+#   oci compute compute-capacity-report create --compartment-id <ocid> \
+#     --availability-domain <ad> \
+#     --shape-availabilities '[{"instanceShape":"VM.Standard.A1.Flex","instanceShapeConfig":{"ocpus":2,"memoryInGBs":12}}]'
+#
 # Usage:
 #   bash deploy/oci_launch_loop.sh <compartment_ocid> <subnet_ocid>
 #
@@ -66,7 +77,7 @@ while true; do
     --compartment-id "$COMPARTMENT_ID" \
     --availability-domain "$AD" \
     --shape "VM.Standard.A1.Flex" \
-    --shape-config '{"ocpus": 4, "memoryInGBs": 24}' \
+    --shape-config '{"ocpus": 2, "memoryInGBs": 12}' \
     --image-id "$IMAGE_ID" \
     --subnet-id "$SUBNET_ID" \
     --assign-public-ip true \
