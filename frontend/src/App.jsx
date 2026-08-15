@@ -33,6 +33,7 @@ const TrendExplorer = lazy(() => import('./pages/TrendExplorer'))
 const GuiltyPleasureMap = lazy(() => import('./pages/GuiltyPleasureMap'))
 const OverlapArena = lazy(() => import('./pages/OverlapArena'))
 const PlaylistNameGenerator = lazy(() => import('./pages/PlaylistNameGenerator'))
+const ListeningHistory = lazy(() => import('./pages/ListeningHistory'))
 const RoomPage = lazy(() => import('./pages/RoomPage'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 
@@ -152,6 +153,7 @@ function AtlasShell() {
             <Route path="/taste-tunnel" element={<RoomPage roomId="taste-tunnel" />} />
             <Route path="/drop-archive" element={<RoomPage roomId="drop-archive" />} />
             <Route path="/deep-map" element={<RoomPage roomId="deep-map" />} />
+            <Route path="/your-listening" element={<RoomPage roomId="your-listening" />} />
             <Route path="/mood-map" element={<MoodMap />} />
             <Route path="/genre-weather" element={<GenreWeather />} />
             <Route path="/group-blend" element={<GroupBlend />} />
@@ -176,6 +178,7 @@ function AtlasShell() {
             <Route path="/main-character" element={<MainCharacter />} />
             <Route path="/trend-explorer" element={<TrendExplorer />} />
             <Route path="/guilty-pleasure" element={<GuiltyPleasureMap />} />
+            <Route path="/listening" element={<ListeningHistory />} />
             <Route path="/overlap-arena" element={<OverlapArena />} />
             <Route path="/name-generator" element={<PlaylistNameGenerator />} />
             <Route path="*" element={<NotFound />} />

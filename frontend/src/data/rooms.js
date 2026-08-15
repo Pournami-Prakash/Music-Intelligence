@@ -92,6 +92,21 @@ export const ROOMS = {
       ['Time Capsule', '/time-capsule', 'The songs, artists, and chart moments that defined each era.', {}, 'Clock'],
     ],
   },
+  // The only room built from the visitor's own data rather than the corpus.
+  // Everything in it is parsed in the browser and never uploaded.
+  'your-listening': {
+    name: 'Your Listening',
+    eyebrow: 'Personal record',
+    accent: '#3DDC97',
+    code: 'YOU',
+    icon: 'Clock',
+    description: 'The one room made from your own data: drop in a Spotify export and read your listening against the corpus.',
+    primary: ['Read your history', '/listening', {}],
+    stats: ['your hours', 'taste drift', 'corpus placement'],
+    features: [
+      ['Listening History', '/listening', 'Your own export, read in the browser and never uploaded.', {}, 'Clock'],
+    ],
+  },
 }
 
 export const ROOM_ORDER = [
@@ -101,4 +116,5 @@ export const ROOM_ORDER = [
   'vibe-dictionary',
   'taste-tunnel',
   'drop-archive',
+  'your-listening',
 ]

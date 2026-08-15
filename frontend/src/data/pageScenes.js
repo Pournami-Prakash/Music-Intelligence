@@ -15,6 +15,8 @@ export const PAGE_SCENES = {
   '/song-passport': ['passport', 'SPT / 02', 'context visa', '#5AC8FA'],
   '/mood-contradiction': ['contradiction', 'SPT / 03', 'context comparison', '#FF5C8A'],
   '/guilty-pleasure': ['guilty', 'SPT / 04', 'context switchers', '#FF7A90'],
+  '/your-listening': ['listening', 'YOU / 00', 'personal record', '#3DDC97'],
+  '/listening': ['listening', 'YOU / 01', 'personal record', '#3DDC97'],
   '/soundtrack-gift': ['gift', 'SPT / 05', 'emotional sequence', '#F9A8D4'],
   '/vibe-dictionary': ['lexicon', 'LEX / 01', 'playlist language', '#FB923C'],
   '/playlist-language': ['language', 'LEX / 02', 'title corpus', '#FB923C'],
