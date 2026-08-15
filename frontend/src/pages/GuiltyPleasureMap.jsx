@@ -96,7 +96,15 @@ export default function GuiltyPleasureMap() {
 
         {!loading && !error && (
           <div className="grid grid-cols-1 xl:grid-cols-[330px_minmax(0,1fr)] gap-4 items-start">
-            <PvPanel label={selected ? 'Selected track' : 'Context key'} className="atlas-rise" style={{ '--i': 0 }}>
+            <PvPanel
+              label={selected ? 'Selected track' : 'Context key'}
+              // Sticky so the detail panel stays in view while the ledger
+              // scrolls: it is ~175px next to an 800px+ list, which otherwise
+              // leaves the column looking truncated and puts the panel
+              // off-screen by the time you click a track near the bottom.
+              className="atlas-rise atlas-sticky-aside"
+              style={{ '--i': 0 }}
+            >
               {selected ? (
                 <>
                   <p className="text-[var(--text-hi)] text-xl font-bold">{selected.title}</p>

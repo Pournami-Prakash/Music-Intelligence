@@ -129,7 +129,13 @@ function AtlasShell() {
         </button>
         <main
           ref={mainRef}
-          className="atlas-main flex-1 lg:ml-56 min-h-screen overflow-x-hidden"
+          // `overflow-x: hidden` forces overflow-y to `auto`, making this a
+          // scroll container, which silently breaks every position: sticky
+          // inside it. `clip` avoids that, so it is used from xl up where the
+          // sticky asides live. Below xl we keep `hidden`: some routes
+          // (/genre-weather) render elements a little wider than a 375px
+          // viewport, and `hidden` absorbs that where `clip` would not.
+          className="atlas-main flex-1 lg:ml-56 min-h-screen overflow-x-hidden xl:overflow-x-clip"
           data-atlas-scene={scene.key}
           data-atlas-family={family}
           style={{ '--route-accent': scene.accent }}

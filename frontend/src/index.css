@@ -1704,6 +1704,18 @@
     box-shadow: none;
   }
 
+  /* Pins a short side panel next to a long scrolling list, so it stays on
+     screen while the list scrolls and the column stops reading as truncated.
+     Needs the extra class to out-specify `.atlas-main .pv-panel` above, which
+     sets position: relative. Only above xl, where the grid is two columns. */
+  @media (min-width: 1280px) {
+    .atlas-main .pv-panel.atlas-sticky-aside {
+      position: sticky;
+      top: 1.5rem;
+      align-self: start;
+    }
+  }
+
   .atlas-main .pv-panel::after,
   .atlas-main .pv-stat::after {
     content: '';
