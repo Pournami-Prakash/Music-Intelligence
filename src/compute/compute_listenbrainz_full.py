@@ -33,8 +33,9 @@ from src.storage.r2 import R2Client
 
 _CACHE_DIR   = Path(tempfile.gettempdir()) / "track2vec_cache"
 _DUMP_DIR    = Path("/tmp/mbdump")
-_DUMP_URL    = ("https://data.metabrainz.org/pub/musicbrainz/data/fullexport"
-                "/20260704-002053/mbdump.tar.bz2")
+# Resolved at call time: MetaBrainz rotates full exports and deletes old ones,
+# so a pinned snapshot path eventually 404s. See src/compute/mbdump_url.py.
+_DUMP_URL    = None  # set by _resolve_dump_url() on first use
 _LB_URL      = "https://api.listenbrainz.org/1/popularity/recording"
 _LB_BATCH    = 1000
 
@@ -50,14 +51,17 @@ def extract_mbdump():
         print(f"Using cached MBDump tables in {_DUMP_DIR}", flush=True)
         return
 
+    from src.compute.mbdump_url import dump_url
+    url = dump_url("mbdump.tar.bz2")
+
     print("Streaming MusicBrainz dump (7 GB) — extracting isrc + recording only...", flush=True)
-    print(f"  URL: {_DUMP_URL}", flush=True)
+    print(f"  URL: {url}", flush=True)
     print(f"  Saving to: {_DUMP_DIR}", flush=True)
     print("  This downloads ~7 GB but only writes ~375 MB to disk.\n", flush=True)
 
     # curl handles SSL correctly on macOS; pipe into tar for streaming extraction
     cmd = (
-        f"curl -sL --fail '{_DUMP_URL}'"
+        f"curl -sL --fail '{url}'"
         f" | tar -xjf - -C {_DUMP_DIR} --strip-components=1"
         f" mbdump/isrc mbdump/recording"
     )

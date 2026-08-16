@@ -33,8 +33,9 @@ from src.storage.r2 import R2Client
 
 _CACHE_DIR = Path(tempfile.gettempdir()) / "track2vec_cache"
 _DUMP_DIR  = Path("/tmp/mbdump")
-_DUMP_URL  = ("https://data.metabrainz.org/pub/musicbrainz/data/fullexport"
-               "/20260704-002053/mbdump.tar.bz2")
+# Resolved at call time: MetaBrainz rotates full exports and deletes old ones,
+# so a pinned snapshot path eventually 404s. See src/compute/mbdump_url.py.
+_DUMP_URL  = None  # set by _resolve_dump_url() on first use
 _LB_URL    = "https://api.listenbrainz.org/1/popularity/recording"
 _LB_BATCH  = 1000
 
@@ -44,10 +45,14 @@ def extract_artist_credit():
     if ac_path.exists():
         print(f"  Using cached artist_credit ({ac_path.stat().st_size/1e6:.0f} MB)", flush=True)
         return
+    from src.compute.mbdump_url import dump_url
+    url = dump_url("mbdump.tar.bz2")
+
     print("Streaming MBDump to extract artist_credit...", flush=True)
-    print(f"  (7 GB stream — only writes artist_credit to disk)\n", flush=True)
+    print(f"  URL: {url}", flush=True)
+    print("  (7 GB stream — only writes artist_credit to disk)\n", flush=True)
     _DUMP_DIR.mkdir(parents=True, exist_ok=True)
-    cmd = (f"curl -sL --fail '{_DUMP_URL}'"
+    cmd = (f"curl -sL --fail '{url}'"
            f" | tar -xjf - -C {_DUMP_DIR} --strip-components=1 mbdump/artist_credit")
     result = subprocess.run(cmd, shell=True)
     if result.returncode != 0:

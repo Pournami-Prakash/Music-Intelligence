@@ -179,7 +179,7 @@ def main() -> int:
 
     if args.upload:
         from src.storage.r2 import R2Client
-        R2Client().upload_file(str(OUT_LOCAL), R2_KEY)
+        R2Client().upload(str(OUT_LOCAL), R2_KEY)
         print(f"  uploaded -> {R2_KEY}")
     else:
         print("  (not uploaded; pass --upload to publish to R2)")

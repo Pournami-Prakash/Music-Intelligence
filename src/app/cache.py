@@ -160,6 +160,7 @@ _STABLE_KEYS = {
     "enrichment/listenbrainz_lookup.parquet",
     "computed/era_tracks.parquet",
     "computed/artist_ubiquity_lookup.parquet",
+    "computed/artist_popularity_current.parquet",
     "computed/track_search.sqlite.gz",
 }
 _TTL_STABLE  = 86_400  # 24 h
@@ -169,6 +170,7 @@ _TTL_DEFAULT = 3_600   # 1 h
 _SCHEMA_CONTRACTS: dict[str, set[str]] = {
     "processed/canonical_tracks.parquet":         {"spotify_track_uri", "track_name", "artist_name"},
     "computed/artist_stats.parquet":              {"artist_name", "playlist_count", "rank"},
+    "computed/artist_popularity_current.parquet": {"artist_name", "current_rank", "current_pct"},
     "enrichment/artist_genres.parquet":           {"artist_name"},
     "enrichment/artist_lastfm.parquet":           {"artist_name"},
     "computed/artist_edges.parquet":              {"artist_a_name", "artist_b_name", "shared_playlists"},

@@ -10,6 +10,16 @@ const ACCENT = '#3DDC97'
 
 const SUGGESTIONS = ['Drake', 'Taylor Swift', 'The Weeknd', 'Kendrick Lamar', 'Billie Eilish']
 
+// Ranks are "lower is better", so a smaller current rank means the artist is
+// bigger now than the 2010s corpus makes them look. Thresholds are deliberately
+// coarse: the two measures are different enough that small gaps mean nothing.
+function rankVerdict(corpusRank, currentRank) {
+  const ratio = corpusRank / currentRank
+  if (ratio >= 3) return 'Much bigger in current listening than the 2010s corpus suggests.'
+  if (ratio <= 1 / 3) return 'Bigger in 2010s playlists than in current listening.'
+  return 'Comparable standing then and now.'
+}
+
 export default function ArtistUbiquity() {
   const [query, setQuery] = useState('')
   const [result, setResult] = useState(null)
@@ -118,6 +128,29 @@ export default function ArtistUbiquity() {
                         <span className="text-xs text-[var(--text-low)]">playlist frequency</span>
                       </div>
                     </div>
+
+                    {/* The corpus rank alone misreads anyone who arrived after
+                        2017. Showing today's standing next to it turns a
+                        misleading number into an interesting disagreement. */}
+                    {result.current && (
+                      <div className="atlas-rank-compare">
+                        <div>
+                          <small>Playlist corpus · 2010–2017</small>
+                          <strong>#{result.rank.toLocaleString()}</strong>
+                        </div>
+                        <span aria-hidden="true">vs</span>
+                        <div>
+                          <small>Listening today · 2026</small>
+                          <strong style={{ color: ACCENT }}>#{result.current.rank.toLocaleString()}</strong>
+                        </div>
+                        <p>
+                          {rankVerdict(result.rank, result.current.rank)} Today’s figure blends
+                          ListenBrainz listens and Last.fm listeners, whose users skew Western and
+                          rock-leaning, so it is a second opinion rather than a correction.
+                        </p>
+                      </div>
+                    )}
+
                     <div className="mt-6"><EqualizerBars color={ACCENT} /></div>
                   </div>
                 </div>

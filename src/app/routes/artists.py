@@ -80,6 +80,47 @@ def artist_images_batch(body: ArtistsBatchBody):
     return {"images": results, "meta": {"source": "cached_artifact", "live_lookup": False}}
 
 
+def _current_standing(artist_name: str) -> Optional[dict]:
+    """Where the artist stands on present-day listening, not 2017 placement.
+
+    `artist_stats` ranks by appearances in a playlist corpus that ends in
+    October 2017, so an artist who arrived later reads as obscure: Olivia
+    Rodrigo sits outside the top 10,000 there. This adds the companion ranking
+    built from ListenBrainz listens and Last.fm listeners.
+
+    The two disagree in both directions and neither is authoritative. Scrobbler
+    populations lean Western and rock/indie, so Drake falls from #1 to #82 and
+    A.R. Rahman from #2,111 to #13,016. That is why this is returned alongside
+    the corpus rank rather than replacing it, and why the artifact is optional:
+    if it has not been published, the endpoint behaves exactly as before.
+    """
+    from src.app.cache import local_parquet, duck_df
+
+    try:
+        path = local_parquet("computed/artist_popularity_current.parquet")
+        if path is None:
+            return None
+        rows = duck_df(
+            "SELECT current_rank, current_pct, lastfm_listeners, lb_listens, signal_count "
+            f"FROM read_parquet('{path.as_posix()}') WHERE artist_name = ? LIMIT 1",
+            [artist_name],
+        )
+        if rows is None or rows.empty:
+            return None
+        row = rows.iloc[0]
+        return {
+            "rank":             int(row["current_rank"]),
+            "pct":              float(row["current_pct"]),
+            "lastfm_listeners": int(row["lastfm_listeners"]),
+            "listenbrainz_listens": int(row["lb_listens"]),
+            "signal_count":     int(row["signal_count"]),
+            "basis": "ListenBrainz listens and Last.fm listeners, refreshed 2026",
+        }
+    except Exception:
+        # Never let the companion signal take down the primary answer.
+        return None
+
+
 @router.get("/api/artist-ubiquity/{artist}")
 def artist_ubiquity(artist: str, artist_uri: Optional[str] = None):
     from src.app.cache import duck_df, local_parquet
@@ -100,6 +141,7 @@ def artist_ubiquity(artist: str, artist_uri: Optional[str] = None):
                     {"name": c["co_artist_name"], "overlap_pct": c["overlap_pct"]}
                     for c in _to_list(r.get("top_co_artists"))
                 ],
+                "current": _current_standing(r["artist_name"]),
                 "detail_level": "full",
             }
 
@@ -135,6 +177,10 @@ def artist_ubiquity(artist: str, artist_uri: Optional[str] = None):
             "rank":           int(row["rank"]),
             "top_tracks":     [],
             "co_artists":     [],
+            # Especially wanted here: an artist deep in the long tail is often
+            # there because they arrived after the corpus closed in 2017, not
+            # because nobody listens to them.
+            "current":        _current_standing(row["artist_name"]),
             "detail_level":   "rank_only",
             "note":           "Rank and reach use the full artist table; track and co-artist details cover the top 10,000.",
         }
