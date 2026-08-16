@@ -57,55 +57,74 @@ DUMP_DIR = Path("/tmp/mbdump")
 OUT_LOCAL = ROOT / "data" / "processed" / "track_first_release.parquet"
 R2_KEY = "enrichment/track_first_release.parquet"
 
-# table -> archive it lives in
-NEEDED = {
-    "recording": "mbdump.tar.bz2",
-    "track": "mbdump.tar.bz2",
-    "medium": "mbdump.tar.bz2",
-    "release": "mbdump.tar.bz2",
-    "release_group_meta": "mbdump-derived.tar.bz2",
+# Each table is streamed from tar straight into `cut`, so the full table never
+# lands on disk — only the two columns the join needs. `recording` and `track`
+# are multi-GB apiece; trimmed, the whole working set is roughly 2 GB instead of
+# ~13 GB. That costs one pass over the archive per table, which is the right
+# trade when disk is scarce and bandwidth is not.
+#
+# `fields` is 1-based (cut's convention) against the raw dump. `cols` is 0-based
+# against the *trimmed* file, which is what DuckDB reads.
+#
+# Raw positions come from the MusicBrainz schema. release_group_meta was checked
+# against the 20260815 dump directly: id, release_count, first_release_date_year,
+# month, day, rating, rating_count — the year is the third field, not the second,
+# and reading the second would have parsed release_count as a year.
+TABLES = {
+    "recording":          {"archive": "mbdump.tar.bz2",         "fields": "1,2",
+                           "cols": {"id": 0, "gid": 1}},
+    "track":              {"archive": "mbdump.tar.bz2",         "fields": "3,4",
+                           "cols": {"recording": 0, "medium": 1}},
+    "medium":             {"archive": "mbdump.tar.bz2",         "fields": "1,2",
+                           "cols": {"id": 0, "release": 1}},
+    "release":            {"archive": "mbdump.tar.bz2",         "fields": "1,5",
+                           "cols": {"id": 0, "release_group": 1}},
+    "release_group_meta": {"archive": "mbdump-derived.tar.bz2", "fields": "1,3",
+                           "cols": {"release_group": 0, "first_release_date_year": 1}},
 }
 
-# Column positions in the MusicBrainz TSV exports. The dumps carry no header,
-# so these are indexes into the documented schema rather than names.
-COLS = {
-    "recording":          {"id": 0, "gid": 1},
-    "track":              {"id": 0, "recording": 2, "medium": 3},
-    "medium":             {"id": 0, "release": 1},
-    "release":            {"id": 0, "release_group": 4},
-    # release_group_meta is: id, release_count, first_release_date_year,
-    # first_release_date_month, first_release_date_day, rating, rating_count.
-    # Verified against the 20260815 dump — the year is index 2; index 1 is
-    # release_count, which reads as a plausible-looking small integer and would
-    # have been silently dropped by the sanity range below.
-    "release_group_meta": {"release_group": 0, "first_release_date_year": 2},
-}
+COLS = {name: spec["cols"] for name, spec in TABLES.items()}
+
+
+def free_gb(path: Path = DUMP_DIR) -> float:
+    st = os.statvfs(path)
+    return st.f_bavail * st.f_frsize / 1e9
 
 
 def extract() -> None:
     DUMP_DIR.mkdir(parents=True, exist_ok=True)
-    by_archive: dict[str, list[str]] = {}
-    for table, archive in NEEDED.items():
-        if (DUMP_DIR / table).exists():
-            size = (DUMP_DIR / table).stat().st_size / 1e6
-            print(f"  cached: {table} ({size:.0f} MB)", flush=True)
-            continue
-        by_archive.setdefault(archive, []).append(table)
+    print(f"Free disk: {free_gb():.1f} GB", flush=True)
 
-    for archive, tables in by_archive.items():
-        url = dump_url(archive)
-        members = " ".join(f"mbdump/{t}" for t in tables)
-        print(f"\nStreaming {archive} for: {', '.join(tables)}", flush=True)
-        print(f"  {url}", flush=True)
-        cmd = (
-            f"curl -sL --fail '{url}'"
-            f" | tar -xjf - -C {DUMP_DIR} --strip-components=1 {members}"
-        )
-        if subprocess.run(cmd, shell=True).returncode != 0:
-            print(f"[ERROR] failed extracting {tables} from {archive}", flush=True)
+    for table, spec in TABLES.items():
+        target = DUMP_DIR / table
+        if target.exists():
+            print(f"  cached: {table} ({target.stat().st_size / 1e6:.0f} MB)", flush=True)
+            continue
+
+        if free_gb() < 3:
+            print(f"[ERROR] only {free_gb():.1f} GB free; stopping before {table}", flush=True)
             sys.exit(1)
-        for t in tables:
-            print(f"  extracted {t} ({(DUMP_DIR / t).stat().st_size / 1e6:.0f} MB)", flush=True)
+
+        url = dump_url(spec["archive"])
+        print(f"\nStreaming {spec['archive']} -> {table} (fields {spec['fields']})", flush=True)
+
+        # -O sends the member to stdout so the untrimmed table is never written.
+        # Writing to a .part file first means an interrupted run cannot leave a
+        # truncated table looking like a complete cached one.
+        part = target.with_suffix(".part")
+        cmd = (
+            f"set -o pipefail; curl -sL --fail '{url}'"
+            f" | tar -xOjf - mbdump/{table}"
+            f" | cut -f{spec['fields']} > '{part}'"
+        )
+        if subprocess.run(cmd, shell=True, executable="/bin/bash").returncode != 0:
+            part.unlink(missing_ok=True)
+            print(f"[ERROR] failed extracting {table} from {spec['archive']}", flush=True)
+            sys.exit(1)
+
+        part.rename(target)
+        print(f"  {table}: {target.stat().st_size / 1e6:.0f} MB "
+              f"({free_gb():.1f} GB free)", flush=True)
 
 
 def tsv(table: str) -> str:
@@ -155,7 +174,7 @@ def main() -> int:
     if not args.skip_extract:
         extract()
     else:
-        missing = [t for t in NEEDED if not (DUMP_DIR / t).exists()]
+        missing = [t for t in TABLES if not (DUMP_DIR / t).exists()]
         if missing:
             print(f"[ERROR] --skip-extract but missing: {', '.join(missing)}", flush=True)
             return 1
