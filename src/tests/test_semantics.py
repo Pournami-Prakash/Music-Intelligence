@@ -12,6 +12,9 @@ from pathlib import Path
 import pytest
 import requests
 
+# Imported rather than duplicated so the test tracks the serving rule.
+from src.app.routes.discovery import CORPUS_RELEASE_CUTOFF
+
 
 BASE = os.environ.get("BASE_URL", "http://localhost:8000").rstrip("/")
 STATIC_DATA_DIR = Path(__file__).resolve().parents[2] / "frontend" / "public" / "data"
@@ -44,13 +47,39 @@ def test_mood_map_reports_unique_matches_separately_from_assignments():
     assert data["categories_overlap"] is True
 
 
-@pytest.mark.parametrize("era", ["1960s", "1970s", "1980s", "1990s", "2000s", "2010s", "2020s"])
+@pytest.mark.parametrize("era", ["1960s", "1970s", "1980s", "1990s", "2000s", "2010s"])
 def test_time_capsule_tracks_belong_to_selected_release_decade(era):
     data = json.loads((STATIC_DATA_DIR / f"time-capsule-{era}.json").read_text())
     start = int(era[:4])
     assert data["data_source"] == "release_year"
     assert data["method_version"] == "release-year-v2"
     assert all(start <= track["release_year"] <= start + 9 for track in data["top_tracks"])
+
+
+def test_time_capsule_never_ranks_releases_after_the_corpus_cutoff():
+    """No era may rank a track released after the playlist corpus ends.
+
+    playlist_count is earned inside a corpus that stops in October 2017, so a
+    later release year means the date is wrong. Deezer reissue dates used to
+    put Aerosmith's "Dream On" (1973) in the 2020s with 13,558 pre-2017
+    appearances; this pins the whole feature against that class of error.
+    """
+    for path in sorted(STATIC_DATA_DIR.glob("time-capsule-*.json")):
+        data = json.loads(path.read_text())
+        years = [track["release_year"] for track in data["top_tracks"]]
+        years += [row["year"] for row in data.get("year_distribution", [])]
+        assert years, f"{path.name} shipped with no years"
+        assert max(years) <= CORPUS_RELEASE_CUTOFF, (
+            f"{path.name} ranks a {max(years)} release, but the corpus ends "
+            f"{CORPUS_RELEASE_CUTOFF}"
+        )
+
+
+def test_era_beyond_the_corpus_is_refused_rather_than_guessed():
+    """Asking for the 2020s must fail loudly instead of returning misdated rows."""
+    response = get("/api/time-capsule", {"era": "2020s"})
+    assert response.status_code == 404
+    assert "era_outside_corpus" in response.json()["detail"]
 
 
 def test_collision_is_deterministic_and_ranked_by_bridge_score():

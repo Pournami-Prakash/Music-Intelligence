@@ -14,12 +14,28 @@ function confidenceFor(pathname) {
   return ['Measured', 'Direct count, rank, date, or graph relationship']
 }
 
-function formatSnapshot(value) {
-  if (!value) return 'Snapshot date unavailable'
+// The vintage of the data, not the day the artifacts were compiled. Showing the
+// build date read as "Corpus 2026", which invited people to treat a playlist
+// archive that ends in 2017 as current — the reason a 2021 artist looks obscure
+// here. Routes served from the ongoing editorial archive are dated separately.
+const PLAYLIST_CORPUS_SPAN = 'Playlists 2010–2017'
+const EDITORIAL_SPAN = 'Editorial archive to 2026'
+
+// Routes whose evidence comes from the editorial archive rather than the
+// one-million-playlist corpus, and so are not bounded by the 2017 cutoff.
+const EDITORIAL_SOURCED = new Set([
+  '/editorial-graveyard', '/forgotten-hits', '/forensics',
+  '/mood-contradiction', '/guilty-pleasure',
+])
+
+function formatSnapshot(value, pathname) {
+  if (pathname === '/listening') return 'Your own export'
+  const span = EDITORIAL_SOURCED.has(pathname) ? EDITORIAL_SPAN : PLAYLIST_CORPUS_SPAN
+  if (!value) return span
   const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return 'Snapshot date unavailable'
-  return `Corpus ${new Intl.DateTimeFormat(undefined, {
-    year: 'numeric', month: 'short', day: 'numeric',
+  if (Number.isNaN(date.getTime())) return span
+  return `${span} · built ${new Intl.DateTimeFormat(undefined, {
+    year: 'numeric', month: 'short',
   }).format(date)}`
 }
 
@@ -30,10 +46,10 @@ export default function EvidencePanel({ evidence, pathname }) {
   useEffect(() => {
     let active = true
     getAtlasMetadata().then(meta => {
-      if (active) setSnapshot(formatSnapshot(meta?.manifest_generated_at))
+      if (active) setSnapshot(formatSnapshot(meta?.manifest_generated_at, pathname))
     })
     return () => { active = false }
-  }, [])
+  }, [pathname])
 
   if (!evidence) return null
 

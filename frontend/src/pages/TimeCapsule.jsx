@@ -6,7 +6,10 @@ import { ErrorSignal } from '../components/SignalState'
 import { readSharedParam, replaceSharedParams } from '../lib/api'
 
 const ACCENT = '#94A3B8'
-const ERAS = ['1960s', '1970s', '1980s', '1990s', '2000s', '2010s', '2020s']
+// No 2020s: the playlist corpus ends in 2017, so nothing released after that
+// can be ranked by playlist reach. Offering the decade produced a listing of
+// pre-2017 tracks carrying reissue dates (Aerosmith's "Dream On" as 2023).
+const ERAS = ['1960s', '1970s', '1980s', '1990s', '2000s', '2010s']
 
 export default function TimeCapsule() {
   const [era, setEra] = useState('2010s')

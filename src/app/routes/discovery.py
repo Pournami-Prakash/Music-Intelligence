@@ -27,9 +27,23 @@ _ERA_MAP = {
     "70s": (1970, 1979), "1970s": (1970, 1979),
     "80s": (1980, 1989), "1980s": (1980, 1989),
     "90s": (1990, 1999), "1990s": (1990, 1999),
-    "2000s": (2000, 2009), "2010s": (2010, 2019),
+    "2000s": (2000, 2009), "2010s": (2010, 2017),
     "2020s": (2020, 2029),
 }
+
+# The playlist corpus stops in October 2017, so `playlist_count` in
+# era_tracks can only describe tracks that existed by then. Deezer release
+# dates, however, report reissues and remasters: "Dream On" (1973) came back
+# tagged 2023, "Beat It" (1982) as 2024, each still carrying five figures of
+# pre-2017 playlist appearances. Those rows are internally contradictory, so a
+# release year past the cutoff means the date is wrong, not that the corpus
+# somehow contains future music. Ranking by a count the track cannot have
+# earned in that year is worse than showing nothing, so they are dropped.
+#
+# The real repair is first-release dates from the MusicBrainz dump (see
+# src/compute/compute_mbdump_isrc.py for the streaming pattern); until then this
+# keeps the feature honest rather than confidently wrong.
+CORPUS_RELEASE_CUTOFF = 2017
 
 _MOOD_PAIRS = {
     "sad":    ["gym", "workout", "hype", "party", "banger", "pump", "energy"],
@@ -187,6 +201,16 @@ def time_capsule(era: str = "2010s", limit: int = 20):
 
     if era_clean in _ERA_MAP:
         y_min, y_max = _ERA_MAP[era_clean]
+        # An era entirely past the corpus cutoff has no honest answer: say so
+        # plainly instead of returning tracks carrying misdated reissues.
+        if y_min > CORPUS_RELEASE_CUTOFF:
+            raise HTTPException(
+                404,
+                detail=(
+                    f"era_outside_corpus: the playlist corpus ends in {CORPUS_RELEASE_CUTOFF}, "
+                    f"so no release year after that can be ranked by playlist reach"
+                ),
+            )
     elif re.fullmatch(r"\d{4}", era_clean):
         y = int(era_clean)
         y_min, y_max = y, y
@@ -218,6 +242,9 @@ def time_capsule(era: str = "2010s", limit: int = 20):
     sub = era_df[era_df["release_year"].notna()].copy()
     sub["release_year"] = sub["release_year"].astype(int)
     sub = sub[sub["release_year"] >= 1940]
+    # Drop rows whose release year postdates the corpus: their playlist_count
+    # cannot have been earned. See CORPUS_RELEASE_CUTOFF above.
+    sub = sub[sub["release_year"] <= CORPUS_RELEASE_CUTOFF]
     sub = _music_only(sub)
     if y_min is not None:
         sub = sub[(sub["release_year"] >= y_min) & (sub["release_year"] <= y_max)]
