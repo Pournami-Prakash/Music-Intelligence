@@ -212,44 +212,67 @@ function TopList({ title, rows }) {
 
 // The part only this project can do: place the artists you actually played
 // against how far they travel in the 1M-playlist corpus.
+//
+// A 404 means the artist genuinely isn't in the corpus table. Anything else
+// (backend down, timeout, 5xx) means we don't know — and must not be reported
+// as absence, which would state a fact about the data from a transport failure.
 async function crossReference(summary) {
   const names = summary.topArtists.slice(0, 8).map(a => a.name)
   const results = await Promise.all(names.map(async name => {
     try {
       const d = await getJson(`/api/artist-ubiquity/${encodeURIComponent(name)}`, { timeoutMs: 20000 })
-      return { name, found: true, playlistCount: d.playlist_count, pct: d.pct, rank: d.rank }
-    } catch {
-      return { name, found: false }
+      return { name, state: 'found', playlistCount: d.playlist_count, pct: d.pct, rank: d.rank }
+    } catch (e) {
+      return { name, state: e?.status === 404 ? 'absent' : 'unavailable' }
     }
   }))
-  const found = results.filter(r => r.found)
+  const found = results.filter(r => r.state === 'found')
+  const unavailable = results.filter(r => r.state === 'unavailable').length
   const avgPct = found.length ? found.reduce((a, b) => a + b.pct, 0) / found.length : null
-  return { results, avgPct, matched: found.length, total: names.length }
+  return {
+    results, avgPct,
+    matched: found.length,
+    total: names.length,
+    unavailable,
+    // Every lookup failing for transport reasons is an outage, not a finding.
+    offline: unavailable === names.length,
+  }
 }
 
 function CorpusPanel({ corpus }) {
   if (!corpus) return <p className="listening-note">Measuring your artists against the corpus…</p>
-  if (corpus.error) return <p className="listening-note">The corpus lookup is unavailable right now.</p>
+  if (corpus.error || corpus.offline) {
+    return (
+      <p className="listening-note">
+        The corpus lookup is unavailable right now, so these artists could not be placed. This is a
+        connection problem, not a statement about whether they appear in the corpus.
+      </p>
+    )
+  }
 
-  const max = Math.max(...corpus.results.filter(r => r.found).map(r => r.pct), 1)
+  const max = Math.max(...corpus.results.filter(r => r.state === 'found').map(r => r.pct), 1)
   return (
     <>
       <p className="listening-note listening-note-top">
         How far your most-played artists travel across the million-playlist corpus. This measures
         placement, not listening: a high bar means many people filed them into playlists, not that
-        many people played them.
+        many people played them. The corpus is a fixed archive of playlists built up to 2017, so an
+        artist who broke out after that ranks low here however popular they are now — a low bar can
+        mean “arrived late”, not “obscure”.
       </p>
       <ul className="listening-corpus">
         {corpus.results.map(r => (
           <li key={r.name}>
             <span className="listening-corpus-name">{r.name}</span>
-            {r.found ? (
+            {r.state === 'found' ? (
               <>
                 <span className="listening-corpus-bar"><i style={{ width: `${(r.pct / max) * 100}%` }} /></span>
                 <span className="listening-corpus-val">{r.pct.toFixed(2)}% of playlists · #{r.rank}</span>
               </>
             ) : (
-              <span className="listening-corpus-missing">outside the top-artist table</span>
+              <span className="listening-corpus-missing">
+                {r.state === 'absent' ? 'outside the top-artist table' : 'lookup unavailable'}
+              </span>
             )}
           </li>
         ))}
@@ -257,7 +280,9 @@ function CorpusPanel({ corpus }) {
       {corpus.avgPct != null && (
         <p className="listening-verdict">
           Your top artists sit in <strong>{corpus.avgPct.toFixed(2)}%</strong> of playlists on average
-          {corpus.matched < corpus.total && ` (${corpus.matched} of ${corpus.total} matched)`}.
+          {corpus.matched < corpus.total && ` (${corpus.matched} of ${corpus.total} placed`}
+          {corpus.matched < corpus.total && corpus.unavailable > 0 && `, ${corpus.unavailable} unavailable`}
+          {corpus.matched < corpus.total && ')'}.
         </p>
       )}
     </>

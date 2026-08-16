@@ -3,7 +3,7 @@ export const FEATURE_EVIDENCE = {
     metric: 'Your own play events, aggregated by time, artist, album, and track',
     source: 'A Spotify data export you supply, parsed in your browser and never uploaded',
     coverage: 'Whatever the export contains: the account-data package covers twelve months, extended streaming history covers the account lifetime',
-    limit: 'Plays under thirty seconds are excluded from taste totals, and corpus comparisons still measure playlist placement rather than anyone’s listening.',
+    limit: 'Plays under thirty seconds are excluded from taste totals. Corpus comparisons measure playlist placement rather than listening, and the corpus stops in 2017, so artists who broke out after that rank low regardless of their present popularity.',
   },
   '/mood-map': {
     metric: 'Distinct titles matching bounded mood or listening-context terms',
