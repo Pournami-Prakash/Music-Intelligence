@@ -91,40 +91,90 @@ def free_gb(path: Path = DUMP_DIR) -> float:
     return st.f_bavail * st.f_frsize / 1e9
 
 
+def _field_count(path: Path) -> int:
+    with path.open("r", encoding="utf-8", errors="replace") as fh:
+        return len(fh.readline().rstrip("\n").split("\t"))
+
+
+def trim_in_place(table: str) -> None:
+    """Cut a full-width dump table down to the columns the join needs.
+
+    Self-healing rather than trusting a flag: an already-trimmed file is left
+    alone, and a full-width one left over from an earlier run is trimmed now.
+    That matters because the trimmed and untrimmed layouts differ, so reading a
+    stale full-width file with trimmed column indexes silently returns the wrong
+    field (release_count instead of a release year) rather than failing.
+    """
+    spec = TABLES[table]
+    path = DUMP_DIR / table
+    want = len(spec["cols"])
+    have = _field_count(path)
+    if have <= want:
+        return
+
+    tmp = path.with_suffix(".trim")
+    cmd = f"cut -f{spec['fields']} '{path}' > '{tmp}'"
+    if subprocess.run(cmd, shell=True, executable="/bin/bash").returncode != 0:
+        tmp.unlink(missing_ok=True)
+        print(f"[ERROR] failed trimming {table}", flush=True)
+        sys.exit(1)
+    before = path.stat().st_size
+    tmp.replace(path)
+    print(f"  trimmed {table}: {before/1e6:.0f} -> {path.stat().st_size/1e6:.0f} MB "
+          f"({have} -> {want} fields, {free_gb():.1f} GB free)", flush=True)
+
+
 def extract() -> None:
+    """Pull every needed table in a single pass per archive, then trim.
+
+    An earlier version streamed each table separately through `tar -O | cut`, so
+    the untrimmed data never touched disk (~2 GB peak instead of ~13 GB). That
+    was safe on a 95%-full volume but decompressed the 7.4 GB bzip2 archive once
+    per table, and bzip2 decompression — not download — is the slow part. One
+    pass writes all four tables and trims them immediately afterwards, which is
+    roughly four times faster at the cost of a higher peak.
+    """
     DUMP_DIR.mkdir(parents=True, exist_ok=True)
     print(f"Free disk: {free_gb():.1f} GB", flush=True)
 
+    by_archive: dict[str, list[str]] = {}
     for table, spec in TABLES.items():
-        target = DUMP_DIR / table
-        if target.exists():
-            print(f"  cached: {table} ({target.stat().st_size / 1e6:.0f} MB)", flush=True)
+        if (DUMP_DIR / table).exists():
+            trim_in_place(table)
+            print(f"  cached: {table} ({(DUMP_DIR / table).stat().st_size/1e6:.0f} MB)", flush=True)
             continue
+        by_archive.setdefault(spec["archive"], []).append(table)
 
-        if free_gb() < 3:
-            print(f"[ERROR] only {free_gb():.1f} GB free; stopping before {table}", flush=True)
-            sys.exit(1)
+    if not by_archive:
+        return
 
-        url = dump_url(spec["archive"])
-        print(f"\nStreaming {spec['archive']} -> {table} (fields {spec['fields']})", flush=True)
+    # The untrimmed tables land whole before trimming, so refuse to start
+    # without headroom rather than filling the volume mid-extract.
+    needed = 18.0
+    if free_gb() < needed:
+        print(f"[ERROR] {free_gb():.1f} GB free; need ~{needed:.0f} GB for a single-pass "
+              f"extract. Free space, or use a per-table streaming extract.", flush=True)
+        sys.exit(1)
 
-        # -O sends the member to stdout so the untrimmed table is never written.
-        # Writing to a .part file first means an interrupted run cannot leave a
-        # truncated table looking like a complete cached one.
-        part = target.with_suffix(".part")
+    for archive, tables in by_archive.items():
+        url = dump_url(archive)
+        members = " ".join(f"mbdump/{t}" for t in tables)
+        print(f"\nStreaming {archive} once for: {', '.join(tables)}", flush=True)
+        print(f"  {url}", flush=True)
         cmd = (
             f"set -o pipefail; curl -sL --fail '{url}'"
-            f" | tar -xOjf - mbdump/{table}"
-            f" | cut -f{spec['fields']} > '{part}'"
+            f" | tar -xjf - -C '{DUMP_DIR}' --strip-components=1 {members}"
         )
         if subprocess.run(cmd, shell=True, executable="/bin/bash").returncode != 0:
-            part.unlink(missing_ok=True)
-            print(f"[ERROR] failed extracting {table} from {spec['archive']}", flush=True)
+            print(f"[ERROR] failed extracting {tables} from {archive}", flush=True)
             sys.exit(1)
 
-        part.rename(target)
-        print(f"  {table}: {target.stat().st_size / 1e6:.0f} MB "
-              f"({free_gb():.1f} GB free)", flush=True)
+        for t in tables:
+            print(f"  extracted {t}: {(DUMP_DIR / t).stat().st_size/1e6:.0f} MB "
+                  f"({free_gb():.1f} GB free)", flush=True)
+        # Trim straight away so peak disk falls back before the join runs.
+        for t in tables:
+            trim_in_place(t)
 
 
 def tsv(table: str) -> str:
