@@ -7,8 +7,11 @@ import TasteStream from '../components/listening/TasteStream'
 import YearSpiral from '../components/listening/YearSpiral'
 import { getJson } from '../lib/api'
 import {
+  ArtistDayDial, ObsessionTimeline, SessionScatter, ConcentrationCurve, DiscoveryPlot,
+} from '../components/listening/ListeningPlots'
+import {
   readHistoryFiles, summarize, tasteSeries, yearDays, yearsCovered,
-  chartTiming, sessions, obsessions, artistClock,
+  chartTiming, sessions, obsessions, artistClock, concentration, discovery,
   formatDuration, formatHour,
 } from '../lib/listeningHistory'
 
@@ -36,7 +39,9 @@ export default function ListeningHistory() {
       const s = summarize(plays)
       s.sessions = sessions(plays)
       s.obsessions = obsessions(plays)
-      s.artistClock = artistClock(plays, s.topArtists)
+      s.artistClock = artistClock(plays, s.topArtists, 12)
+      s.concentration = concentration(s.allArtists)
+      s.discovery = discovery(plays)
       setSummary(s); setFormat(format); setNotes(skippedFiles)
       const years = yearsCovered(s)
       setYear(years[years.length - 1])
@@ -153,87 +158,67 @@ export default function ListeningHistory() {
             {summary.artistClock?.length > 0 && (
               <PvPanel label="Who owns which hour" className="atlas-rise" style={{ '--i': 2 }}>
                 <p className="listening-note listening-note-top">
-                  The average hour each of your top artists occupies. Hours are averaged around the
-                  clock rather than arithmetically, so late-night plays don’t collapse to midday.
-                  “Focus” is how tightly an artist sits in one part of the day.
+                  Each artist sits at the hour they occupy, and further from the centre the more
+                  tightly they keep to it. Hours are averaged around the clock, so late-night plays
+                  do not collapse to midday. Dot size is play count.
                 </p>
-                <ul className="listening-clockrow">
-                  {summary.artistClock.map(a => (
-                    <li key={a.artist}>
-                      <span className="listening-clockrow-hour">{formatHour(Math.round(a.hour) % 24)}</span>
-                      <span className="listening-clockrow-name">{a.artist}</span>
-                      <span className="listening-clockrow-track">
-                        <i style={{ left: `${(a.hour / 24) * 100}%`, opacity: 0.35 + a.focus * 0.65 }} />
-                      </span>
-                      <span className="listening-clockrow-focus">{(a.focus * 100).toFixed(0)}%</span>
-                    </li>
-                  ))}
-                </ul>
-                <div className="listening-clockrow-scale">
-                  <span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>12am</span>
-                </div>
+                <ArtistDayDial rows={summary.artistClock} />
+              </PvPanel>
+            )}
+
+            {summary.obsessions?.length > 0 && (
+              <PvPanel label="Obsessions" className="atlas-rise" style={{ '--i': 3 }}>
+                <p className="listening-note listening-note-top">
+                  Tracks played hard inside a single fortnight, placed when the burst happened.
+                  Play counts alone surface old favourites; concentration finds what briefly took
+                  over.
+                </p>
+                <ObsessionTimeline rows={summary.obsessions} range={summary.range} />
               </PvPanel>
             )}
 
             {summary.sessions && (
-              <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-4 items-start">
-                <PvPanel label="Obsessions" className="atlas-rise" style={{ '--i': 3 }}>
-                  <p className="listening-note listening-note-top">
-                    Tracks you played hard inside a fortnight, rather than steadily forever. Play
-                    counts alone find old favourites; concentration finds the ones that took over.
-                  </p>
-                  {summary.obsessions.length ? (
-                    <ul className="listening-obsessions">
-                      {summary.obsessions.map(o => (
-                        <li key={`${o.track}-${o.artist}`}>
-                          <span className="listening-obs-track">
-                            <b>{o.track}</b><em>{o.artist}</em>
-                          </span>
-                          <span className="listening-obs-burst">
-                            <b>{o.peakPlays}×</b>
-                            <small>in 14 days from {o.windowStart.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</small>
-                          </span>
-                          <span className={o.abandoned ? 'listening-obs-tag is-gone' : 'listening-obs-tag'}>
-                            {o.abandoned ? 'never returned' : 'still played'}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="listening-note">No track was played eight or more times inside a fortnight.</p>
-                  )}
-                </PvPanel>
-
-                <PvPanel label="Sessions" className="atlas-rise atlas-sticky-aside" style={{ '--i': 4 }}>
-                  <dl className="listening-patterns">
-                    <div><dt>Listening sessions</dt><dd>{summary.sessions.count.toLocaleString()}</dd></div>
-                    <div><dt>Median session</dt><dd>{formatDuration(summary.sessions.medianMs)}</dd></div>
-                    <div><dt>Tracks per session</dt><dd>{summary.sessions.meanTracks.toFixed(1)}</dd></div>
-                    <div>
-                      <dt>Longest sitting</dt>
-                      <dd>{formatDuration(summary.sessions.longest.ms)}</dd>
-                      <span className="listening-sub">
-                        {summary.sessions.longest.tracks} tracks · {summary.sessions.longest.start.toLocaleDateString()}
-                      </span>
-                    </div>
-                  </dl>
-                  <h3 className="listening-top-title" style={{ marginTop: 18 }}>You start with</h3>
-                  <ol className="listening-openers">
-                    {summary.sessions.openers.map(o => (
-                      <li key={`${o.track}-${o.artist}`}>
-                        <span><b>{o.track}</b><em>{o.artist}</em></span>
-                        <span>{o.count}×</span>
-                      </li>
-                    ))}
-                  </ol>
-                  <p className="listening-note">
-                    A gap over 30 minutes starts a new session.
-                  </p>
-                </PvPanel>
-              </div>
+              <PvPanel label="Every session" className="atlas-rise" style={{ '--i': 4 }}>
+                <p className="listening-note listening-note-top">
+                  {summary.sessions.count.toLocaleString()} sessions, one dot each: when it started
+                  against how long it ran. A gap over 30 minutes starts a new one. The longest was{' '}
+                  {formatDuration(summary.sessions.longest.ms)} across{' '}
+                  {summary.sessions.longest.tracks} tracks.
+                </p>
+                <SessionScatter points={summary.sessions.points} median={summary.sessions.medianMs} />
+              </PvPanel>
             )}
 
-            <PvPanel label="Taste drift" className="atlas-rise" style={{ '--i': 5 }}>
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-4 items-start">
+              {summary.concentration && (
+                <PvPanel label="How concentrated is your taste" className="atlas-rise" style={{ '--i': 5 }}>
+                  <p className="listening-note listening-note-top">
+                    Share of your hours against share of your artists. The dashed diagonal is
+                    listening spread evenly; the further the curve bows, the more a few artists
+                    carry everything.
+                  </p>
+                  <ConcentrationCurve data={summary.concentration} />
+                  <p className="listening-verdict">
+                    Half your listening is{' '}
+                    <strong>{summary.concentration.artistsForHalf}</strong> of{' '}
+                    {summary.concentration.artists.toLocaleString()} artists, and your top ten alone
+                    are <strong>{(summary.concentration.top10Share * 100).toFixed(0)}%</strong>.
+                  </p>
+                </PvPanel>
+              )}
+
+              {summary.discovery?.length > 1 && (
+                <PvPanel label="Still finding new music?" className="atlas-rise" style={{ '--i': 6 }}>
+                  <p className="listening-note listening-note-top">
+                    Artists you played for the first time, month by month. The first month is left
+                    out, since everything is new by definition.
+                  </p>
+                  <DiscoveryPlot rows={summary.discovery} />
+                </PvPanel>
+              )}
+            </div>
+
+            <PvPanel label="Taste drift" className="atlas-rise" style={{ '--i': 7 }}>
               <p className="listening-note listening-note-top">
                 Your eight most-played artists, month by month. Bands swell while an artist held your
                 attention and pinch to nothing when they lost it.

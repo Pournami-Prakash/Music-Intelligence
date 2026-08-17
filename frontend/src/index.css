@@ -4585,3 +4585,41 @@
   .listening-clockrow-track { display: none; }
   .listening-clockrow-scale { display: none; }
 }
+
+/* Listening-history plots: axes, ticks, and keys shared by the SVG views. */
+.listening-dial, .listening-timeline, .listening-scatter,
+.listening-lorenz, .listening-discovery { display: grid; place-items: center; }
+.listening-dial svg { width: 100%; max-width: 460px; height: auto; overflow: visible; }
+.listening-timeline svg, .listening-scatter svg,
+.listening-lorenz svg, .listening-discovery svg { width: 100%; height: auto; overflow: visible; }
+
+.listening-plot-tick { fill: var(--text-low); font-size: 10px; }
+.listening-plot-axis {
+  fill: var(--text-low); font-size: 9px; letter-spacing: .1em; text-transform: uppercase;
+}
+.listening-plot-note { fill: var(--text-mid); font-size: 11px; }
+.listening-dial-tick {
+  fill: var(--text-low); font-size: 10px; font-weight: 600;
+  letter-spacing: .08em; text-transform: uppercase;
+}
+.listening-dial-center {
+  fill: var(--text-hi); font-size: 17px; font-weight: 700; letter-spacing: -.01em;
+}
+.listening-dial-sub {
+  fill: var(--text-low); font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+}
+.listening-plot-caption {
+  margin-top: 10px; min-height: 34px;
+  color: var(--text-mid); font-size: 12px; line-height: 1.55; text-align: center;
+}
+.listening-plot-caption b { color: var(--text-hi); }
+.listening-plot-key {
+  display: flex; flex-wrap: wrap; gap: 16px; margin-top: 10px;
+  color: var(--text-mid); font-size: 11px;
+}
+.listening-plot-key span { display: inline-flex; align-items: center; gap: 6px; }
+.listening-plot-key i { width: 9px; height: 9px; border-radius: 50%; display: block; }
+.listening-plot-key i.dash {
+  width: 14px; height: 0; border-radius: 0;
+  border-top: 1px dashed var(--route-accent);
+}
