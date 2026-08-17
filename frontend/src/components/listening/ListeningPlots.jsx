@@ -128,7 +128,7 @@ export function ObsessionTimeline({ rows, range }) {
 
       <p className="listening-plot-caption">
         {active
-          ? <><b>{active.track}</b> — {active.artist} · {active.peakPlays}× in a fortnight from{' '}
+          ? <><b>{active.track}</b> · {active.artist} · {active.peakPlays}× in a fortnight from{' '}
               {active.windowStart.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
               {active.abandoned ? ', never played again' : ', still in rotation'}</>
           : <>Each circle is a track played hard inside one fortnight. Pink means it was never

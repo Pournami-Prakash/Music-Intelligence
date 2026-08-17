@@ -9,7 +9,7 @@ the feature makes.
 
 So the chart table travels to the client instead of the history travelling to
 the server. 7,409 rows is small enough for that to be reasonable, provided it
-is not shipped as verbose JSON — hence the array-of-arrays layout and the
+is not shipped as verbose JSON, hence the array-of-arrays layout and the
 stripped `spotify:track:` prefixes.
 
 Row layout (kept positional to avoid repeating six keys 7,409 times):

@@ -16,7 +16,7 @@ function confidenceFor(pathname) {
 
 // The vintage of the data, not the day the artifacts were compiled. Showing the
 // build date read as "Corpus 2026", which invited people to treat a playlist
-// archive that ends in 2017 as current — the reason a 2021 artist looks obscure
+// archive that ends in 2017 as current, which is why a 2021 artist looks obscure
 // here. Routes served from the ongoing editorial archive are dated separately.
 const PLAYLIST_CORPUS_SPAN = 'Playlists 2010–2017'
 const EDITORIAL_SPAN = 'Editorial archive to 2026'

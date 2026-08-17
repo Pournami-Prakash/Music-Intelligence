@@ -111,7 +111,7 @@ export default function ListeningHistory() {
               </ol>
               <p className="listening-privacy">
                 Nothing is uploaded. The files are parsed in your browser and held in memory only
-                until you close this tab — there is no account here and no server-side storage.
+                until you close this tab. There is no account here and no server-side storage.
               </p>
             </PvPanel>
           </>
@@ -240,7 +240,7 @@ export default function ListeningHistory() {
               <PvPanel label="Listening patterns" className="atlas-rise atlas-sticky-aside" style={{ '--i': 4 }}>
                 <dl className="listening-patterns">
                   <div><dt>Busiest day</dt><dd>{summary.patterns.busiestDay
-                    ? `${summary.patterns.busiestDay[0]} · ${formatDuration(summary.patterns.busiestDay[1])}` : '—'}</dd></div>
+                    ? `${summary.patterns.busiestDay[0]} · ${formatDuration(summary.patterns.busiestDay[1])}` : 'n/a'}</dd></div>
                   <div><dt>Skip rate</dt><dd>{summary.patterns.skipRate == null
                     ? <span className="listening-unavailable">not in this export</span> : pct(summary.patterns.skipRate)}</dd></div>
                   <div><dt>Shuffle</dt><dd>{summary.patterns.shuffleRate == null
@@ -309,7 +309,7 @@ function ChartTimingPanel({ timing }) {
         <div className="pv-cell"><small>Charted tracks played</small><strong>{matched.toLocaleString()}</strong></div>
         <div className="pv-cell"><small>Judgeable</small><strong>{comparable.toLocaleString()}</strong></div>
         <div className="pv-cell"><small>Played before charting</small><strong style={{ color: 'var(--route-accent)' }}>{earlyCount.toLocaleString()}</strong></div>
-        <div className="pv-cell"><small>Median lead</small><strong>{medianLeadDays == null ? '—' : `${medianLeadDays > 0 ? '+' : ''}${medianLeadDays}d`}</strong></div>
+        <div className="pv-cell"><small>Median lead</small><strong>{medianLeadDays == null ? 'n/a' : `${medianLeadDays > 0 ? '+' : ''}${medianLeadDays}d`}</strong></div>
       </div>
 
       {early.length > 0 ? (
@@ -333,7 +333,7 @@ function ChartTimingPanel({ timing }) {
         </>
       ) : (
         <p className="listening-note">
-          Nothing you played reached the charts after you found it — every match was already
+          Nothing you played reached the charts after you found it: every match was already
           charting by the time it turned up in your history.
         </p>
       )}
@@ -360,7 +360,7 @@ function ChartTimingPanel({ timing }) {
 // against how far they travel in the 1M-playlist corpus.
 //
 // A 404 means the artist genuinely isn't in the corpus table. Anything else
-// (backend down, timeout, 5xx) means we don't know — and must not be reported
+// (backend down, timeout, 5xx) means we don't know, and must not be reported
 // as absence, which would state a fact about the data from a transport failure.
 async function crossReference(summary) {
   const names = summary.topArtists.slice(0, 8).map(a => a.name)
@@ -403,7 +403,7 @@ function CorpusPanel({ corpus }) {
         How far your most-played artists travel across the million-playlist corpus. This measures
         placement, not listening: a high bar means many people filed them into playlists, not that
         many people played them. The corpus is a fixed archive of playlists built up to 2017, so an
-        artist who broke out after that ranks low here however popular they are now — a low bar can
+        artist who broke out after that ranks low here however popular they are now, so a low bar can
         mean “arrived late”, not “obscure”.
       </p>
       <ul className="listening-corpus">

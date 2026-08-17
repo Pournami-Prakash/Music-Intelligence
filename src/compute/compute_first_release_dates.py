@@ -59,7 +59,7 @@ OUT_LOCAL = ROOT / "data" / "processed" / "track_first_release.parquet"
 R2_KEY = "enrichment/track_first_release.parquet"
 
 # Each table is streamed from tar straight into `cut`, so the full table never
-# lands on disk — only the two columns the join needs. `recording` and `track`
+# lands on disk; only the two columns the join needs are kept. `recording` and `track`
 # are multi-GB apiece; trimmed, the whole working set is roughly 2 GB instead of
 # ~13 GB. That costs one pass over the archive per table, which is the right
 # trade when disk is scarce and bandwidth is not.
@@ -69,7 +69,7 @@ R2_KEY = "enrichment/track_first_release.parquet"
 #
 # Raw positions come from the MusicBrainz schema. release_group_meta was checked
 # against the 20260815 dump directly: id, release_count, first_release_date_year,
-# month, day, rating, rating_count — the year is the third field, not the second,
+# month, day, rating, rating_count. The year is the third field, not the second,
 # and reading the second would have parsed release_count as a year.
 TABLES = {
     "recording":          {"archive": "mbdump.tar.bz2",         "fields": "1,2",
@@ -188,7 +188,7 @@ def extract() -> None:
     An earlier version streamed each table separately through `tar -O | cut`, so
     the untrimmed data never touched disk (~2 GB peak instead of ~13 GB). That
     was safe on a 95%-full volume but decompressed the 7.4 GB bzip2 archive once
-    per table, and bzip2 decompression — not download — is the slow part. One
+    per table, and bzip2 decompression, not download, is the slow part. One
     pass writes all four tables and trims them immediately afterwards, which is
     roughly four times faster at the cost of a higher peak.
     """
