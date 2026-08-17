@@ -8,7 +8,7 @@ import YearSpiral from '../components/listening/YearSpiral'
 import { getJson } from '../lib/api'
 import {
   readHistoryFiles, summarize, tasteSeries, yearDays, yearsCovered,
-  formatDuration, formatHour,
+  chartTiming, formatDuration, formatHour,
 } from '../lib/listeningHistory'
 
 const pct = v => `${(v * 100).toFixed(0)}%`
@@ -21,6 +21,7 @@ export default function ListeningHistory() {
   const [notes, setNotes] = useState([])
   const [year, setYear] = useState(null)
   const [corpus, setCorpus] = useState(null)
+  const [timing, setTiming] = useState(null)
   const inputRef = useRef(null)
 
   const ingest = useCallback(async fileList => {
@@ -37,6 +38,12 @@ export default function ListeningHistory() {
       setYear(years[years.length - 1])
       setState('ready')
       crossReference(s).then(setCorpus).catch(() => setCorpus({ error: true }))
+
+      // Chart dates come to the browser; the history never leaves it.
+      fetch('/data/chart-history.json')
+        .then(r => (r.ok ? r.json() : null))
+        .then(chart => setTiming(chart ? chartTiming(plays, chart) : null))
+        .catch(() => setTiming(null))
     } catch (e) {
       setError(e.message || 'That file could not be read.')
       setState('error')
@@ -174,7 +181,13 @@ export default function ListeningHistory() {
               </PvPanel>
             </div>
 
-            <PvPanel label="Your taste against the corpus" className="atlas-rise" style={{ '--i': 5 }}>
+            {timing && timing.comparable > 0 && (
+              <PvPanel label="Were you early?" className="atlas-rise" style={{ '--i': 5 }}>
+                <ChartTimingPanel timing={timing} />
+              </PvPanel>
+            )}
+
+            <PvPanel label="Your taste against the corpus" className="atlas-rise" style={{ '--i': 6 }}>
               <CorpusPanel corpus={corpus} />
             </PvPanel>
 
@@ -207,6 +220,67 @@ function TopList({ title, rows }) {
         ))}
       </ol>
     </div>
+  )
+}
+
+function ChartTimingPanel({ timing }) {
+  const { matched, comparable, early, earlyCount, late, medianLeadDays, coverage, reentries, maxLeadDays } = timing
+  return (
+    <>
+      <p className="listening-note listening-note-top">
+        {matched.toLocaleString()} of the tracks you played later appeared on the charts.
+        Comparing the <em>first</em> time you played each one against the week it first charted
+        says whether you got there ahead of everyone else.
+      </p>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+        <div className="pv-cell"><small>Charted tracks played</small><strong>{matched.toLocaleString()}</strong></div>
+        <div className="pv-cell"><small>Judgeable</small><strong>{comparable.toLocaleString()}</strong></div>
+        <div className="pv-cell"><small>Played before charting</small><strong style={{ color: 'var(--route-accent)' }}>{earlyCount.toLocaleString()}</strong></div>
+        <div className="pv-cell"><small>Median lead</small><strong>{medianLeadDays == null ? '—' : `${medianLeadDays > 0 ? '+' : ''}${medianLeadDays}d`}</strong></div>
+      </div>
+
+      {early.length > 0 ? (
+        <>
+          <h3 className="listening-top-title">Your earliest calls</h3>
+          <ul className="listening-early">
+            {early.map(t => (
+              <li key={t.id}>
+                <span className="listening-early-track">
+                  <b>{t.title}</b><em>{t.artist}</em>
+                </span>
+                <span className="listening-early-gap">
+                  {t.leadDays >= 365
+                    ? `${(t.leadDays / 365).toFixed(1)} yr early`
+                    : `${t.leadDays} days early`}
+                </span>
+                <span className="listening-early-peak">peaked #{t.peak}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <p className="listening-note">
+          Nothing you played reached the charts after you found it — every match was already
+          charting by the time it turned up in your history.
+        </p>
+      )}
+
+      <p className="listening-verdict">
+        {earlyCount > late
+          ? 'You reached most of these before the charts did.'
+          : 'You mostly arrived after these had already charted.'}{' '}
+        Charts cover {coverage?.from} to {coverage?.to}. Tracks that charted before your export
+        begins are left out, since arriving “late” to a song that broke before your data starts
+        says nothing about you.
+        {reentries > 0 && (
+          <> A further {reentries.toLocaleString()} matches are excluded as chart re-entries:
+          the chart table starts in {coverage?.from?.slice(0, 4)}, so an older song returning to
+          the charts looks like a debut, and a lead beyond {maxLeadDays} days is far more likely
+          to be that than a genuinely early call.</>
+        )}
+      </p>
+    </>
   )
 }
 

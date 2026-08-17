@@ -4488,3 +4488,28 @@
   .atlas-rank-compare { grid-template-columns: 1fr; }
   .atlas-rank-compare > span { justify-self: start; }
 }
+
+/* "Were you early?" — first play vs first chart week. */
+.listening-early { display: grid; gap: 2px; }
+.listening-early li {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 14px;
+  align-items: baseline; padding: 9px 0; border-bottom: 1px solid var(--hairline);
+}
+.listening-early li:last-child { border-bottom: 0; }
+.listening-early-track { min-width: 0; }
+.listening-early-track b {
+  display: block; color: var(--text-hi); font-size: 13px; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.listening-early-track em {
+  display: block; color: var(--text-low); font-size: 11px; font-style: normal;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.listening-early-gap {
+  color: var(--route-accent); font-size: 12px; font-weight: 600; white-space: nowrap;
+}
+.listening-early-peak { color: var(--text-low); font-size: 11px; white-space: nowrap; }
+@media (max-width: 560px) {
+  .listening-early li { grid-template-columns: minmax(0, 1fr) auto; }
+  .listening-early-peak { grid-column: 2; }
+}
