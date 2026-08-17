@@ -45,6 +45,7 @@ import sys
 from pathlib import Path
 
 import duckdb
+import requests
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -86,9 +87,66 @@ TABLES = {
 COLS = {name: spec["cols"] for name, spec in TABLES.items()}
 
 
+ARCHIVE_DIR = DUMP_DIR / "_archives"
+
+
 def free_gb(path: Path = DUMP_DIR) -> float:
     st = os.statvfs(path)
     return st.f_bavail * st.f_frsize / 1e9
+
+
+def fetch_archive(archive: str) -> Path:
+    """Download an archive to disk, resuming if a previous attempt was cut short.
+
+    Piping the download straight into tar failed twice on `track`, both times
+    with "truncated bzip2 input". `track` is the largest member and sits late in
+    the archive, so the transfer has to survive longest before reaching it, and
+    a stream gives back everything on any drop. MetaBrainz serves byte ranges
+    (HTTP 206), so downloading to a file with -C - turns a dropped connection
+    into a resume instead of a restart.
+
+    Costs 7.4 GB of disk while it runs; the archive is removed after extraction.
+    """
+    ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
+    url = dump_url(archive)
+    target = ARCHIVE_DIR / archive
+
+    expected = 0
+    try:
+        head = requests.head(url, allow_redirects=True, timeout=30)
+        expected = int(head.headers.get("content-length", 0))
+    except Exception:
+        pass
+
+    have = target.stat().st_size if target.exists() else 0
+    if expected and have == expected:
+        print(f"  archive already complete: {archive} ({have/1e9:.1f} GB)", flush=True)
+        return target
+    if have:
+        print(f"  resuming {archive} at {have/1e9:.1f} / {expected/1e9:.1f} GB", flush=True)
+
+    need = (expected - have) / 1e9 + 1 if expected else 9.0
+    if free_gb() < need:
+        print(f"[ERROR] {free_gb():.1f} GB free, need ~{need:.1f} GB for {archive}", flush=True)
+        sys.exit(1)
+
+    # --retry covers transient drops; -C - resumes from whatever is on disk.
+    cmd = (
+        f"curl -L --fail --retry 8 --retry-delay 5 --retry-all-errors "
+        f"-C - --speed-time 60 --speed-limit 1024 "
+        f"-o '{target}' '{url}'"
+    )
+    if subprocess.run(cmd, shell=True, executable="/bin/bash").returncode != 0:
+        print(f"[ERROR] download of {archive} failed; rerun to resume from "
+              f"{target.stat().st_size/1e9 if target.exists() else 0:.1f} GB", flush=True)
+        sys.exit(1)
+
+    got = target.stat().st_size
+    if expected and got != expected:
+        print(f"[ERROR] {archive} is {got:,} bytes, expected {expected:,}", flush=True)
+        sys.exit(1)
+    print(f"  downloaded {archive} ({got/1e9:.1f} GB)", flush=True)
+    return target
 
 
 def _field_count(path: Path) -> int:
@@ -157,7 +215,6 @@ def extract() -> None:
         sys.exit(1)
 
     for archive, tables in by_archive.items():
-        url = dump_url(archive)
 
         # One table left: stream it through cut so the untrimmed copy never
         # lands. Per-table streaming only wastes work when several tables are
@@ -166,11 +223,10 @@ def extract() -> None:
             table = tables[0]
             spec = TABLES[table]
             part = (DUMP_DIR / table).with_suffix(".part")
-            print(f"\nStreaming {archive} -> {table} (trimmed in flight)", flush=True)
-            print(f"  {url}", flush=True)
+            local = fetch_archive(archive)
+            print(f"\nExtracting {table} from {archive} (trimmed in flight)", flush=True)
             cmd = (
-                f"set -o pipefail; curl -sL --fail '{url}'"
-                f" | tar -xOjf - mbdump/{table}"
+                f"set -o pipefail; tar -xOjf '{local}' mbdump/{table}"
                 f" | cut -f{spec['fields']} > '{part}'"
             )
             if subprocess.run(cmd, shell=True, executable="/bin/bash").returncode != 0:
@@ -190,11 +246,11 @@ def extract() -> None:
         subprocess.run(f"rm -rf '{staging}'", shell=True)
         staging.mkdir(parents=True, exist_ok=True)
         members = " ".join(f"mbdump/{t}" for t in tables)
-        print(f"\nStreaming {archive} once for: {', '.join(tables)}", flush=True)
-        print(f"  {url}", flush=True)
+        local = fetch_archive(archive)
+        print(f"\nExtracting from {archive}: {', '.join(tables)}", flush=True)
         cmd = (
-            f"set -o pipefail; curl -sL --fail '{url}'"
-            f" | tar -xjf - -C '{staging}' --strip-components=1 {members}"
+            f"set -o pipefail; tar -xjf '{local}' -C '{staging}' "
+            f"--strip-components=1 {members}"
         )
         proc = subprocess.run(cmd, shell=True, executable="/bin/bash",
                               stderr=subprocess.PIPE, text=True)
