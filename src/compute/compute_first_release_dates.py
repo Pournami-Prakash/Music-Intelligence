@@ -158,23 +158,75 @@ def extract() -> None:
 
     for archive, tables in by_archive.items():
         url = dump_url(archive)
+
+        # One table left: stream it through cut so the untrimmed copy never
+        # lands. Per-table streaming only wastes work when several tables are
+        # wanted, because each one costs a full decompression of the archive.
+        if len(tables) == 1:
+            table = tables[0]
+            spec = TABLES[table]
+            part = (DUMP_DIR / table).with_suffix(".part")
+            print(f"\nStreaming {archive} -> {table} (trimmed in flight)", flush=True)
+            print(f"  {url}", flush=True)
+            cmd = (
+                f"set -o pipefail; curl -sL --fail '{url}'"
+                f" | tar -xOjf - mbdump/{table}"
+                f" | cut -f{spec['fields']} > '{part}'"
+            )
+            if subprocess.run(cmd, shell=True, executable="/bin/bash").returncode != 0:
+                part.unlink(missing_ok=True)
+                print(f"[ERROR] failed extracting {table} from {archive}", flush=True)
+                sys.exit(1)
+            part.rename(DUMP_DIR / table)
+            print(f"  {table}: {(DUMP_DIR / table).stat().st_size/1e6:.0f} MB "
+                  f"({free_gb():.1f} GB free)", flush=True)
+            continue
+
+        # Several tables: one decompression, extracted into a staging directory
+        # so a truncated stream cannot leave a partial table sitting where the
+        # next run would mistake it for a complete cache. A 7.2 GB half-written
+        # `track` is indistinguishable from a good one by existence alone.
+        staging = DUMP_DIR / ".staging"
+        subprocess.run(f"rm -rf '{staging}'", shell=True)
+        staging.mkdir(parents=True, exist_ok=True)
         members = " ".join(f"mbdump/{t}" for t in tables)
         print(f"\nStreaming {archive} once for: {', '.join(tables)}", flush=True)
         print(f"  {url}", flush=True)
         cmd = (
             f"set -o pipefail; curl -sL --fail '{url}'"
-            f" | tar -xjf - -C '{DUMP_DIR}' --strip-components=1 {members}"
+            f" | tar -xjf - -C '{staging}' --strip-components=1 {members}"
         )
-        if subprocess.run(cmd, shell=True, executable="/bin/bash").returncode != 0:
-            print(f"[ERROR] failed extracting {tables} from {archive}", flush=True)
-            sys.exit(1)
+        proc = subprocess.run(cmd, shell=True, executable="/bin/bash",
+                              stderr=subprocess.PIPE, text=True)
+        failed = proc.returncode != 0
+        truncated: set[str] = set()
+        if failed:
+            # tar names the member it died on ("track: truncated bzip2 input"),
+            # which is the only reliable way to tell which file is short: tar
+            # writes members in archive order, not the order they were
+            # requested, so position in `tables` says nothing. Everything else
+            # it finished is complete and worth keeping.
+            print(proc.stderr.strip(), flush=True)
+            for line in proc.stderr.splitlines():
+                name = line.split(":", 1)[0].strip()
+                if name in tables:
+                    truncated.add(name)
+            if not truncated:
+                truncated = set(tables)   # cannot tell: trust none of them
+            print(f"[ERROR] stream truncated during {archive}; "
+                  f"discarding {', '.join(sorted(truncated))}", flush=True)
 
         for t in tables:
-            print(f"  extracted {t}: {(DUMP_DIR / t).stat().st_size/1e6:.0f} MB "
-                  f"({free_gb():.1f} GB free)", flush=True)
-        # Trim straight away so peak disk falls back before the join runs.
-        for t in tables:
+            produced = staging / t
+            if not produced.exists() or t in truncated:
+                continue
+            produced.replace(DUMP_DIR / t)
+            print(f"  extracted {t}: {(DUMP_DIR / t).stat().st_size/1e6:.0f} MB", flush=True)
             trim_in_place(t)
+
+        subprocess.run(f"rm -rf '{staging}'", shell=True)
+        if failed:
+            sys.exit(1)
 
 
 def tsv(table: str) -> str:
