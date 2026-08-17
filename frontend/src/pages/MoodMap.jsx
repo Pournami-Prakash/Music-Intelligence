@@ -35,7 +35,8 @@ export default function MoodMap() {
       <PvPage>
         <PvTop sub="Deep Map" pill="1M titles" />
         <PvHero eyebrow="Cultural mood field" title="Mood Map">
-          Cluster playlist-title language into emotional territories and inspect the phrases that shape each region.
+          Cluster the language of a million playlist titles from 2010 to 2017 into emotional
+          territories, and inspect the phrases that shape each region.
         </PvHero>
         {error ? (
           <div className="max-w-6xl">
@@ -65,7 +66,7 @@ export default function MoodMap() {
     <PvPage>
       <PvTop sub="Deep Map" pill="1M titles" />
       <PvHero eyebrow="Playlist-title evidence" title="Mood Map">
-        See which moods and listening occasions people name explicitly—and the words that placed each title in a territory.
+        Which moods and occasions people named explicitly in a million playlist titles, 2010–2017.
       </PvHero>
 
       <div className="max-w-6xl grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_330px] gap-4 items-start">

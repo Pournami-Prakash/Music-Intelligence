@@ -100,7 +100,9 @@ export default function PlaylistLanguage() {
               <PvPanel label="Corpus vocabulary" className="atlas-rise" style={{ '--i': 0 }}>
                 <p className="mb-4 text-sm text-[var(--text-mid)]">
                   The {corpus.words.length} most common words across {corpus.total_playlists.toLocaleString()} playlist
-                  titles. Each percentage is the share of titles containing that word.
+                  titles written between 2010 and 2017. Each percentage is the share of titles
+                  containing that word. This is a record of how people named playlists then, not
+                  how they name them now.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {corpus.words.map(w => (

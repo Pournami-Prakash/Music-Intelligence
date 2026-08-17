@@ -47,7 +47,8 @@ export default function TrendExplorer() {
     <PvPage>
       <PvTop sub="Vibe Dictionary" pill="Language probe" />
       <PvHero eyebrow="Vocabulary record" title={result?.term || 'Trend Explorer'}>
-        Search playlist-title language by frequency, variants, and the related phrases people attach to a word.
+        Search how people named playlists between 2010 and 2017: word frequency, variants, and the
+        phrases attached to each term.
       </PvHero>
 
       <PvSearch value={query} onChange={setQuery} onSubmit={() => search(query)} placeholder="Any word from playlist titles…" button="Explore word" loading={loading} icon />

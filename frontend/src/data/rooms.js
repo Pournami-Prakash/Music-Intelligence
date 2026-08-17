@@ -9,7 +9,7 @@ export const ROOMS = {
     primary: ['Open Mood Map', '/mood-map', {}],
     stats: ['mood regions', 'genre drift', 'lineage'],
     features: [
-      ['Mood Map', '/mood-map', 'Cluster playlist language into emotional territories.', {}, 'Globe'],
+      ['Mood Map', '/mood-map', 'How playlist language clustered into moods, 2010–2017.', {}, 'Globe'],
       ['Genre Neighborhoods', '/genre-weather', 'Compare genre regions by cluster proximity and evidence size.', {}, 'CloudRain'],
       ['Tag Lineage', '/ancestry', 'Compare tag-similar artists across playlist-reach tiers.', {}, 'GitBranch'],
       ['Editorial Overlap', '/forensics', 'Measure how much of a public playlist appears in the editorial reference set.', {}, 'Search'],
@@ -51,14 +51,17 @@ export const ROOMS = {
     eyebrow: 'Playlist language',
     accent: '#FB923C',
     code: 'LEX',
-    description: 'The language layer of the atlas: words, titles, eras, naming rituals, and cultural shorthand.',
+    // Title-derived, so permanently bounded by the corpus: a million
+    // user-written playlist names from 2010-2017, which no current source
+    // replaces. Dated rather than quietly presented as the present tense.
+    description: 'How a million people named their playlists between 2010 and 2017: words, titles, eras, naming rituals, and cultural shorthand.',
     primary: ['Open the corpus', '/playlist-language', {}],
     stats: ['1M titles', 'word frequency', 'naming rituals'],
     features: [
-      ['Language', '/playlist-language', 'The vocabulary of 1M playlist names — and how yours compares.', {}, 'Type'],
-      ['Trend Words', '/trend-explorer', 'Search any word and read its variants and edges.', { term: 'vibes' }, 'Search'],
-      ['Name Gen', '/name-generator', 'Generate names from real playlist language.', {}, 'Wand2'],
-      ['Roast', '/roast', 'See how generic a playlist title really is.', { title: 'vibes' }, 'Flame'],
+      ['Language', '/playlist-language', 'The vocabulary of 1M playlist names, 2010–2017 — and how yours compares.', {}, 'Type'],
+      ['Trend Words', '/trend-explorer', 'Search any word and read its variants and edges, 2010–2017.', { term: 'vibes' }, 'Search'],
+      ['Name Gen', '/name-generator', 'Generate names from real 2010s playlist language.', {}, 'Wand2'],
+      ['Roast', '/roast', 'See how generic a playlist title was in the 2010s.', { title: 'vibes' }, 'Flame'],
     ],
   },
   'taste-tunnel': {

@@ -44,7 +44,7 @@ export default function PlaylistRoast() {
     <PvPage>
       <PvTop sub="Vibe Dictionary" pill="Verdict file" />
       <PvHero eyebrow="Name audit" title={result?.title || 'Playlist Roast'}>
-        Enter a playlist title and see how common, generic, or accidentally original it is across the archive.
+        Enter a playlist title and see how generic it was among a million titles named 2010–2017.
       </PvHero>
 
       <PvSearch value={query} onChange={setQuery} onSubmit={() => search(query)} placeholder="Your playlist title…" button="Roast" loading={loading} icon />

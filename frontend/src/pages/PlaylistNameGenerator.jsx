@@ -50,7 +50,7 @@ export default function PlaylistNameGenerator() {
     <PvPage>
       <PvTop sub="Vibe Dictionary" pill="Phrase machine" />
       <PvHero eyebrow="Name synthesis" title="Playlist Name Generator">
-        Pick a theme and remix real playlist-title terms into new name ideas.
+        Pick a theme and remix real playlist-title terms, drawn from a million titles named 2010–2017.
       </PvHero>
 
       <div className="max-w-6xl">
