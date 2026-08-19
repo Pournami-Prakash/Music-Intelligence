@@ -82,6 +82,13 @@ TABLES = {
                            "cols": {"id": 0, "release_group": 1}},
     "release_group_meta": {"archive": "mbdump-derived.tar.bz2", "fields": "1,3",
                            "cols": {"release_group": 0, "first_release_date_year": 1}},
+    # Compilation membership. "Compilation" is a *secondary* type in
+    # MusicBrainz, held in its own join table, so a greatest-hits album carries
+    # the same primary type as an original album and cannot be told apart
+    # without this.
+    "release_group_secondary_type_join":
+                          {"archive": "mbdump.tar.bz2",         "fields": "1,2",
+                           "cols": {"release_group": 0, "secondary_type": 1}},
 }
 
 COLS = {name: spec["cols"] for name, spec in TABLES.items()}
@@ -302,7 +309,13 @@ def tsv(table: str) -> str:
 
 
 def build(con: duckdb.DuckDBPyConnection) -> None:
-    con.execute("SET memory_limit='3GB'; SET threads=2; SET preserve_insertion_order=false;")
+    # The five-way join over tens of millions of rows exceeded 3 GB once the
+    # compilation exclusion was added. A temp directory lets DuckDB spill rather
+    # than abort; without one it fails outright at the limit.
+    tmpdir = DUMP_DIR / "duckdb_tmp"
+    tmpdir.mkdir(parents=True, exist_ok=True)
+    con.execute(f"SET memory_limit='6GB'; SET threads=2; "
+                f"SET preserve_insertion_order=false; SET temp_directory='{tmpdir}';")
     print("\nJoining recording -> track -> medium -> release -> release_group_meta…", flush=True)
     con.execute(f"""
         CREATE OR REPLACE TABLE first_release AS
@@ -313,7 +326,18 @@ def build(con: duckdb.DuckDBPyConnection) -> None:
         JOIN {tsv('medium')}  m   ON m.id = t.medium
         JOIN {tsv('release')} rel ON rel.id = m.release
         JOIN {tsv('release_group_meta')} rgm ON rgm.release_group = rel.release_group
+        -- Compilations carry the date of the compilation, not of the music on
+        -- it, and a recording sits on many. Taking MIN across all of them let a
+        -- single stray entry set the date: "Despacito (remix)" landed on
+        -- "The Best Summer Album in the World... Ever!" (1997) and came out as
+        -- a 1997 track despite eight 2017 release groups saying otherwise.
+        -- Excluding compilations leaves the original issue, which is the date
+        -- actually wanted, and still lets a genuinely old recording keep its
+        -- first pressing rather than a later reissue.
+        LEFT JOIN {tsv('release_group_secondary_type_join')} sec
+               ON sec.release_group = rel.release_group AND sec.secondary_type = '1'
         WHERE rgm.first_release_date_year IS NOT NULL
+          AND sec.release_group IS NULL
         GROUP BY r.gid
         -- MusicBrainz carries a little junk (years like 20 and 3036) and some
         -- scheduled future releases; ~1,100 rows in total. Anything outside a
