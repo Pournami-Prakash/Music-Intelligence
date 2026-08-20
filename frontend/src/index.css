@@ -4623,3 +4623,123 @@
   width: 14px; height: 0; border-radius: 0;
   border-top: 1px dashed var(--route-accent);
 }
+
+/* Home scroll act: one song, several contradictory rooms. The section is tall
+   and its contents pinned, so scrolling moves through contexts rather than past
+   them. Colour is driven by the active context. */
+.home-act {
+  position: relative;
+  margin: clamp(60px, 12vh, 140px) 0;
+}
+.home-act-pin {
+  position: sticky;
+  top: 0;
+  min-height: 100vh;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+  padding: 0 24px;
+}
+.home-act-pin::before {
+  content: '';
+  position: absolute;
+  inset: 12% 10%;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--act-accent) 16%, transparent), transparent 66%);
+  filter: blur(48px);
+  transition: background 600ms ease;
+}
+.home-act-kicker {
+  color: var(--text-low);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+.home-act-title {
+  font-size: clamp(40px, 7vw, 92px);
+  font-weight: 700;
+  letter-spacing: -.04em;
+  line-height: .95;
+  color: var(--text-hi);
+}
+.home-act-artist { color: var(--text-mid); font-size: 15px; }
+.home-act-swap {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  margin-top: 18px;
+  min-height: 96px;
+}
+.home-act-context {
+  display: block;
+  color: var(--act-accent);
+  font-size: 13px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  animation: act-in 480ms cubic-bezier(.2, .7, .2, 1) both;
+}
+.home-act-count {
+  display: block;
+  color: var(--text-hi);
+  font-size: clamp(34px, 5vw, 58px);
+  font-weight: 700;
+  letter-spacing: -.03em;
+  animation: act-in 480ms cubic-bezier(.2, .7, .2, 1) 40ms both;
+}
+.home-act-count small {
+  display: block;
+  color: var(--text-low);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+@keyframes act-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+.home-act-rail { display: flex; gap: 7px; margin-top: 6px; }
+.home-act-rail span {
+  width: 34px; height: 3px; border-radius: 999px;
+  background: rgba(255, 255, 255, .12);
+  transition: background 380ms ease, transform 380ms ease;
+}
+.home-act-rail span.is-active { background: var(--c); transform: scaleY(1.9); }
+.home-act-thesis {
+  max-width: 620px;
+  margin-top: 22px;
+  color: var(--text-mid);
+  font-size: 14px;
+  line-height: 1.65;
+  text-wrap: balance;
+}
+.home-act-cta {
+  margin-top: 6px;
+  padding: 9px 20px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  color: var(--text-hi);
+  font-size: 13px;
+  transition: border-color 200ms ease, color 200ms ease;
+}
+.home-act-cta:hover { border-color: var(--act-accent, var(--accent)); color: var(--act-accent, var(--accent)); }
+
+/* Reduced motion: same evidence, no pinning. */
+.home-act-static { display: grid; justify-items: center; text-align: center; gap: 8px; }
+.home-act-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 14px; }
+.home-act-list li {
+  display: inline-flex; align-items: baseline; gap: 8px;
+  padding: 7px 14px; border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--c) 40%, var(--hairline));
+}
+.home-act-list b { color: var(--c); font-size: 13px; text-transform: capitalize; }
+.home-act-list span { color: var(--text-low); font-size: 11px; }
+
+@media (max-width: 640px) {
+  .home-act-pin { min-height: 88vh; }
+  .home-act-rail span { width: 24px; }
+}

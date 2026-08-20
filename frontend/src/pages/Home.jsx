@@ -6,6 +6,7 @@ import { animate, inView, scroll, stagger } from 'motion'
 import { ROOM_ORDER, ROOMS } from '../data/rooms'
 import { CountUp } from '../components/Observatory'
 import CorpusSignal from '../components/CorpusSignal'
+import ScrollAct from '../components/home/ScrollAct'
 import { apiUrl } from '../lib/api'
 
 const DEFAULT_STATS = {
@@ -281,6 +282,11 @@ export default function Home() {
           ))}
         </div>
 
+      </div>
+
+      <ScrollAct reduceMotion={reduceMotion} />
+
+      <div className="max-w-6xl">
         <div className="pv-section-intro" data-motion-reveal>
           <p>Six ways into the archive</p>
           <h2>Choose the question, not the chart.</h2>
