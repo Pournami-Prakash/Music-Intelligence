@@ -42,6 +42,7 @@ nohup.out
 .claude/
 .vscode/
 .idea/
+.impeccable.md
 
 # ── Test cache ────────────────────────────────────────────────────────────────
 .pytest_cache/
